@@ -49,7 +49,7 @@ A global `--color <auto|always|never>` flag controls ANSI styling (default `auto
 | `ff` | `fd`, `find` | Find files by name substring (`-i`, `-e <ext>`, `-t f\|d`) |
 | `ff-ext` | | Find files by extension |
 | `ff-name` | | Find by name substring or glob (`-g`) |
-| `rg` | `gr`, `grep` | Search file contents (`-i`, `--line-number`, `-C <n>`, `-l`, `-e <ext>`) |
+| `search` | `grep` | Search file contents (`-i`, `--line-number`, `-C <n>`, `-l`, `-e <ext>`) |
 | `cat` | | Concatenate and print files (`-n` line numbers) |
 | `preview` | | Syntax-highlighted file preview (`-l <lang>`, `-n`) |
 | `head` / `tail` | | First / last N lines (`-n <count>`) |
@@ -71,9 +71,9 @@ A global `--color <auto|always|never>` flag controls ANSI styling (default `auto
 ```bash
 tk ll                          # long listing, including hidden entries
 tk tree -L 2                   # tree, two levels deep
-tk ff config -e toml           # files whose name contains "config" with a .toml extension
-tk rg "TODO" -i --line-number  # case-insensitive content search with line numbers
-tk rg "fn main" -C 2           # matches with 2 lines of surrounding context
+tk ff config -e toml              # files whose name contains "config" with a .toml extension
+tk search "TODO" -i --line-number # case-insensitive content search with line numbers
+tk grep "fn main" -C 2            # matches with 2 lines of surrounding context
 tk dups -m 1mib                # duplicate files at least 1 MiB, by content hash
 tk largest -n 10               # ten biggest files under the current tree
 tk recent -d 1                 # files modified in the last day

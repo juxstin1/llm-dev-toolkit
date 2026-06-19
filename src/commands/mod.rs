@@ -19,6 +19,7 @@ pub mod view;
 use chrono::{DateTime, Local};
 use clap::ValueEnum;
 use ignore::WalkBuilder;
+use sha2::Digest;
 use std::fs;
 use std::path::Path;
 use std::sync::OnceLock;
@@ -137,6 +138,23 @@ pub fn format_time(secs: i64) -> String {
     let secs = if secs < 0 { 0 } else { secs as u64 };
     let dt = DateTime::<Local>::from(UNIX_EPOCH + std::time::Duration::from_secs(secs));
     dt.format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+/// Stream a file through any RustCrypto digest and return the lowercase-hex result.
+///
+/// The single hashing path shared by `dups` and `checksum`, so `--threads`
+/// behavior and buffering are identical across both commands.
+pub fn hash_file<D: Digest + std::io::Write>(path: &Path) -> Result<String, String> {
+    use std::fmt::Write as _;
+    let mut file = fs::File::open(path).map_err(|e| format!("{}: {}", path.display(), e))?;
+    let mut hasher = D::new();
+    std::io::copy(&mut file, &mut hasher).map_err(|e| format!("{}: {}", path.display(), e))?;
+    let digest = hasher.finalize();
+    let mut hex = String::with_capacity(digest.len() * 2);
+    for byte in digest.iter() {
+        let _ = write!(hex, "{:02x}", byte);
+    }
+    Ok(hex)
 }
 
 pub fn is_binary(path: &Path) -> bool {

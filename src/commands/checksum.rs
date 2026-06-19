@@ -1,45 +1,22 @@
-use std::fs::File;
+use std::path::Path;
 
 use md5::Md5;
 use rayon::prelude::*;
-use sha2::{Digest, Sha224, Sha256, Sha384, Sha512};
+use sha2::{Sha224, Sha256, Sha384, Sha512};
 
-use super::with_rayon;
+use super::{hash_file, with_rayon};
 use crate::ChecksumArgs;
 
 fn checksum_file(path: &str, algorithm: &str) -> Result<String, String> {
-    let mut file = File::open(path).map_err(|e| format!("{}: {}", path, e))?;
-
-    let hash: String = match algorithm {
-        "sha256" | "" => {
-            let mut hasher = Sha256::new();
-            std::io::copy(&mut file, &mut hasher).map_err(|e| format!("{}: {}", path, e))?;
-            format!("{:x}", hasher.finalize())
-        }
-        "sha224" => {
-            let mut hasher = Sha224::new();
-            std::io::copy(&mut file, &mut hasher).map_err(|e| format!("{}: {}", path, e))?;
-            format!("{:x}", hasher.finalize())
-        }
-        "sha384" => {
-            let mut hasher = Sha384::new();
-            std::io::copy(&mut file, &mut hasher).map_err(|e| format!("{}: {}", path, e))?;
-            format!("{:x}", hasher.finalize())
-        }
-        "sha512" => {
-            let mut hasher = Sha512::new();
-            std::io::copy(&mut file, &mut hasher).map_err(|e| format!("{}: {}", path, e))?;
-            format!("{:x}", hasher.finalize())
-        }
-        "md5" => {
-            let mut hasher = Md5::new();
-            std::io::copy(&mut file, &mut hasher).map_err(|e| format!("{}: {}", path, e))?;
-            format!("{:x}", hasher.finalize())
-        }
-        _ => return Err(format!("Unsupported algorithm: {}", algorithm)),
-    };
-
-    Ok(hash)
+    let p = Path::new(path);
+    match algorithm {
+        "sha256" | "" => hash_file::<Sha256>(p),
+        "sha224" => hash_file::<Sha224>(p),
+        "sha384" => hash_file::<Sha384>(p),
+        "sha512" => hash_file::<Sha512>(p),
+        "md5" => hash_file::<Md5>(p),
+        _ => Err(format!("Unsupported algorithm: {}", algorithm)),
+    }
 }
 
 #[cfg(test)]

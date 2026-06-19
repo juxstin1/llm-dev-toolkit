@@ -1,12 +1,11 @@
 use std::collections::BTreeMap;
 use std::io::Read;
-use std::path::Path;
 
 use rayon::prelude::*;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 
 use super::format_size;
-use super::{walk_entries, with_rayon, WalkConfig};
+use super::{hash_file, walk_entries, with_rayon, WalkConfig};
 use crate::DupsArgs;
 
 fn parse_size(s: &str) -> Option<u64> {
@@ -30,20 +29,6 @@ fn parse_size(s: &str) -> Option<u64> {
     };
     let num: u64 = num_str.parse().ok()?;
     Some(num * multiplier)
-}
-
-fn file_hash(path: &Path) -> Option<String> {
-    let mut file = std::fs::File::open(path).ok()?;
-    let mut hasher = Sha256::new();
-    let mut buf = [0u8; 65536];
-    loop {
-        let n = file.read(&mut buf).ok()?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-    Some(format!("{:x}", hasher.finalize()))
 }
 
 /// Fill `buf` from `r`, looping over short reads until full or EOF.
@@ -203,7 +188,9 @@ pub fn run(args: &DupsArgs) -> Result<(), String> {
         entries
             .par_iter()
             .filter_map(|(path, size)| {
-                file_hash(path).map(|hash| (hash, path.to_string_lossy().to_string(), *size))
+                hash_file::<Sha256>(path)
+                    .ok()
+                    .map(|hash| (hash, path.to_string_lossy().to_string(), *size))
             })
             .collect()
     });

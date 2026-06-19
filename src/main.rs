@@ -40,10 +40,8 @@ enum Commands {
     FfExt(FfExtArgs),
     #[command(about = "Find files by substring match in name")]
     FfName(FfNameArgs),
-    #[command(alias = "grep", about = "Search file contents with grep-like patterns")]
-    Rg(RgArgs),
-    #[command(about = "Search file contents (alias for rg)")]
-    Gr(RgArgs),
+    #[command(alias = "grep", about = "Search file contents (grep-like patterns)")]
+    Search(SearchArgs),
     #[command(about = "Concatenate and display files")]
     Cat(CatArgs),
     #[command(about = "Syntax-highlighted file preview")]
@@ -140,7 +138,7 @@ struct FfNameArgs {
 }
 
 #[derive(clap::Args)]
-struct RgArgs {
+struct SearchArgs {
     pattern: String,
     path: Option<String>,
     #[arg(short = 'i', long, help = "Case-insensitive matching")]
@@ -397,8 +395,7 @@ fn main() {
         Commands::Fd(a) => commands::find::run_name(a),
         Commands::FfExt(a) => commands::find::run_ext(a),
         Commands::FfName(a) => commands::find::run_name_pattern(a),
-        Commands::Rg(a) => commands::search::run(a),
-        Commands::Gr(a) => commands::search::run(a),
+        Commands::Search(a) => commands::search::run(a),
         Commands::Cat(a) => commands::view::run_cat(a),
         Commands::Preview(a) => commands::view::run_preview(a),
         Commands::Head(a) => commands::view::run_head(a),

@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::commands;
 use crate::commands::{ansi, color_enabled, paint, walk_entries, WalkConfig};
 
-pub fn run(args: &crate::RgArgs) -> Result<(), String> {
+pub fn run(args: &crate::SearchArgs) -> Result<(), String> {
     let pattern = &args.pattern;
     let root = args.path.as_deref().unwrap_or(".");
 

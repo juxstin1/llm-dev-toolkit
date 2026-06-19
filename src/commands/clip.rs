@@ -42,36 +42,37 @@ mod tests {
 
 pub fn run(args: &crate::ClipArgs) -> Result<(), String> {
     if args.r#in {
-        let content = if let Some(ref val) = args.value {
-            val.clone()
-        } else {
-            let mut buf = String::new();
-            std::io::stdin()
-                .read_to_string(&mut buf)
-                .map_err(|e| e.to_string())?;
-            buf
+        let content = match &args.value {
+            Some(val) => val.clone(),
+            None => {
+                let mut buf = String::new();
+                std::io::stdin()
+                    .read_to_string(&mut buf)
+                    .map_err(|e| e.to_string())?;
+                buf
+            }
         };
 
-        if let Ok(mut cb) = Clipboard::new() {
-            cb.set_text(content.clone()).map_err(|e| e.to_string())?;
-        } else {
-            write_clipboard(&content)?;
+        // Prefer the real system clipboard; fall back to a file-backed store
+        // (e.g. headless Linux, no X11/Wayland) and say so honestly.
+        match Clipboard::new().and_then(|mut cb| cb.set_text(content.clone())) {
+            Ok(()) => println!("Copied {} bytes to the system clipboard", content.len()),
+            Err(_) => {
+                write_clipboard(&content)?;
+                let path = clipboard_path()?;
+                eprintln!(
+                    "System clipboard unavailable; stored {} bytes in {}",
+                    content.len(),
+                    path.display()
+                );
+            }
         }
-        println!("Copied to clipboard ({} bytes)", content.len());
-    } else if args.out {
-        if let Ok(mut cb) = Clipboard::new() {
-            let text = cb.get_text().map_err(|e| e.to_string())?;
-            print!("{}", text);
-        } else {
-            let content = read_clipboard()?;
-            print!("{}", content);
-        }
-    } else if let Ok(mut cb) = Clipboard::new() {
-        let text = cb.get_text().map_err(|e| e.to_string())?;
-        print!("{}", text);
     } else {
-        let content = read_clipboard()?;
-        print!("{}", content);
+        // `-o` and the default both read; the system clipboard wins, else the file store.
+        match Clipboard::new().and_then(|mut cb| cb.get_text()) {
+            Ok(text) => print!("{}", text),
+            Err(_) => print!("{}", read_clipboard()?),
+        }
     }
     Ok(())
 }

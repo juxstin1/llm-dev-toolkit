@@ -34,8 +34,38 @@ pub fn run(args: &crate::ExtractArgs) -> Result<(), String> {
 fn extract_zip(path: &Path, output_dir: &str) -> Result<(), String> {
     let file = fs::File::open(path).map_err(|e| e.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
-    archive.extract(output_dir).map_err(|e| e.to_string())?;
-    println!("Extracted {} entries to {}", archive.len(), output_dir);
+    let out_root = Path::new(output_dir);
+    let mut count = 0usize;
+
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
+
+        // `enclosed_name` rejects absolute paths and any `..` that would escape
+        // the archive root, returning None — the primary zip-slip guard.
+        let rel = match entry.enclosed_name() {
+            Some(name) => name,
+            None => return Err(format!("unsafe path in archive: {}", entry.name())),
+        };
+        let dest = out_root.join(&rel);
+
+        // Defense in depth: the resolved path must stay under the output dir.
+        if !dest.starts_with(out_root) {
+            return Err(format!("path escapes output dir: {}", entry.name()));
+        }
+
+        if entry.is_dir() {
+            fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+        } else {
+            if let Some(parent) = dest.parent() {
+                fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+            let mut out = fs::File::create(&dest).map_err(|e| e.to_string())?;
+            std::io::copy(&mut entry, &mut out).map_err(|e| e.to_string())?;
+            count += 1;
+        }
+    }
+
+    println!("Extracted {} entries to {}", count, output_dir);
     Ok(())
 }
 
@@ -58,6 +88,42 @@ fn extract_tar(path: &Path, output_dir: &str) -> Result<(), String> {
     let count = entries.filter_map(|e| e.ok()).count();
     println!("Extracted {} entries to {}", count, output_dir);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn test_extract_zip_rejects_traversal() {
+        let dir = std::env::temp_dir().join("tk-zipslip-test");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        // Build a zip whose entry tries to escape the extraction root.
+        let zip_path = dir.join("evil.zip");
+        {
+            let f = fs::File::create(&zip_path).unwrap();
+            let mut zw = zip::ZipWriter::new(f);
+            let opts = zip::write::SimpleFileOptions::default();
+            zw.start_file("../escaped.txt", opts).unwrap();
+            zw.write_all(b"pwned").unwrap();
+            zw.finish().unwrap();
+        }
+
+        let out = dir.join("out");
+        fs::create_dir_all(&out).unwrap();
+        let result = extract_zip(&zip_path, &out.to_string_lossy());
+
+        assert!(result.is_err(), "traversal entry must be rejected");
+        assert!(
+            !dir.join("escaped.txt").exists(),
+            "escape target must not be written outside the output dir"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
 
 fn extract_gz(path: &Path, output_dir: &str) -> Result<(), String> {

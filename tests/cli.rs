@@ -72,14 +72,27 @@ fn test_tk_ff() {
 }
 
 #[test]
-fn test_tk_rg() {
-    let dir = setup_temp_dir("rg");
-    let (stdout, stderr, success) = tk(&["rg", "test", dir.to_str().unwrap()]);
-    assert!(success, "rg should succeed exit 0 with no matches");
+fn test_tk_search_no_match() {
+    let dir = setup_temp_dir("search");
+    let (stdout, stderr, success) = tk(&["search", "test", dir.to_str().unwrap()]);
+    assert!(success, "search should exit 0 with no matches");
     assert!(stdout.is_empty(), "no matches expected");
     assert!(
         stderr.is_empty() || stderr.trim().is_empty(),
         "no error output expected"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_grep_alias_finds_match() {
+    let dir = setup_temp_dir("grep");
+    // The `grep` alias should work and find content inside files.
+    let (stdout, _, success) = tk(&["grep", "foo", dir.to_str().unwrap()]);
+    assert!(success, "grep alias should succeed");
+    assert!(
+        stdout.contains("hello.txt"),
+        "grep should find 'foo' in hello.txt, got: {stdout}"
     );
     cleanup(&dir);
 }
