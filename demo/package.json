@@ -1,0 +1,23 @@
+{
+  "name": "tk-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion terminal demo for the tk CLI",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render src/index.ts TkDemo out/tk-demo.mp4 --codec=h264",
+    "still": "remotion still src/index.ts TkDemo out/frame.png"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.481",
+    "hack-font": "^3.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.481"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^6.0.3"
+  }
+}

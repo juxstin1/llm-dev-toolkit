@@ -5,6 +5,10 @@ A fast, single-binary command-line toolkit for the everyday file chores that com
 [![CI](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
+<p align="center">
+  <img src="media/tk-demo.gif" alt="tk in action — ll, tree, search, stats, and largest" width="820">
+</p>
+
 ## Highlights
 
 - **Git-aware by default** — file walks honor `.gitignore`, `.git/info/exclude`, and your global gitignore, and never descend into `.git/`.
@@ -92,6 +96,8 @@ cargo fmt
 ```
 
 Tests live alongside each command module (`#[cfg(test)]`) and as end-to-end CLI tests in [`tests/cli.rs`](tests/cli.rs).
+
+The demo GIF at the top is a [Remotion](https://remotion.dev) project under [`demo/`](demo/) — `cd demo && npm install && npm run studio` to edit it, or `npm run render` to re-render.
 
 ## License
 
