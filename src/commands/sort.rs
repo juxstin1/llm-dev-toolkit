@@ -1,7 +1,19 @@
 use std::fs;
 use std::path::Path;
 
+use serde::Serialize;
+
 use crate::commands::{ansi, paint};
+
+#[derive(Serialize)]
+struct SortEntry {
+    name: String,
+    #[serde(rename = "type")]
+    kind: &'static str,
+    size: u64,
+    modified: i64,
+    extension: String,
+}
 
 #[derive(Clone)]
 struct Entry {
@@ -20,6 +32,20 @@ pub fn run(args: &crate::SortArgs) -> Result<(), String> {
 
     if args.count > 0 && args.count < sorted.len() {
         sorted.truncate(args.count);
+    }
+
+    if crate::commands::json_enabled() {
+        let out: Vec<SortEntry> = sorted
+            .iter()
+            .map(|e| SortEntry {
+                name: e.name.clone(),
+                kind: if e.is_dir { "dir" } else { "file" },
+                size: e.size,
+                modified: e.modified,
+                extension: e.extension.clone(),
+            })
+            .collect();
+        return crate::commands::emit_json(&out);
     }
 
     for entry in &sorted {

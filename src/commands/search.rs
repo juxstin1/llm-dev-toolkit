@@ -2,10 +2,23 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
+use serde::Serialize;
+
 use crate::commands;
 use crate::commands::{ansi, color_enabled, paint, walk_entries, WalkConfig};
 
+#[derive(Serialize)]
+struct SearchHit {
+    path: String,
+    line: usize,
+    text: String,
+}
+
 pub fn run(args: &crate::SearchArgs) -> Result<(), String> {
+    if commands::json_enabled() {
+        return run_json(args);
+    }
+
     let pattern = &args.pattern;
     let root = args.path.as_deref().unwrap_or(".");
 
@@ -42,6 +55,65 @@ pub fn run(args: &crate::SearchArgs) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// JSON scan: emit a flat array of `{path, line, text}` matches (or, with
+/// `-l`, an array of file paths). ANSI highlighting and `-C` context grouping
+/// are display concerns and are intentionally dropped here.
+fn run_json(args: &crate::SearchArgs) -> Result<(), String> {
+    let pattern = &args.pattern;
+    let root = args.path.as_deref().unwrap_or(".");
+
+    let config = WalkConfig {
+        root,
+        show_all: false,
+        ..Default::default()
+    };
+
+    let mut file_hits: Vec<String> = Vec::new();
+    let mut line_hits: Vec<SearchHit> = Vec::new();
+
+    for entry in walk_entries(&config) {
+        if !entry.file_type().is_some_and(|ft| ft.is_file()) {
+            continue;
+        }
+        let file_path = entry.path();
+
+        if let Some(ref ext) = args.ext {
+            match file_path.extension().and_then(|e| e.to_str()) {
+                Some(e) if e.eq_ignore_ascii_case(ext) => {}
+                _ => continue,
+            }
+        }
+
+        if commands::is_binary(file_path) {
+            continue;
+        }
+
+        let file = File::open(file_path).map_err(|e| format!("{}: {}", file_path.display(), e))?;
+        let reader = BufReader::new(file);
+        for (i, line) in reader.lines().enumerate() {
+            let line = line.map_err(|e| format!("{}: {}", file_path.display(), e))?;
+            if !line_matches(&line, pattern, args.ignore_case) {
+                continue;
+            }
+            if args.files_with_matches {
+                file_hits.push(file_path.display().to_string());
+                break;
+            }
+            line_hits.push(SearchHit {
+                path: file_path.display().to_string(),
+                line: i + 1,
+                text: line,
+            });
+        }
+    }
+
+    if args.files_with_matches {
+        commands::emit_json(&file_hits)
+    } else {
+        commands::emit_json(&line_hits)
+    }
 }
 
 /// Does `line` contain `pattern` (optionally case-insensitively)?

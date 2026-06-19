@@ -13,6 +13,7 @@ A fast, single-binary command-line toolkit for the everyday file chores that com
 
 - **Git-aware by default** — file walks honor `.gitignore`, `.git/info/exclude`, and your global gitignore, and never descend into `.git/`.
 - **Single static binary** — one `tk` executable, no runtime dependencies.
+- **Machine-readable** — every command takes `--format json` for raw, parseable output (numeric sizes, unix timestamps, no ANSI), and `tk mcp` runs as an MCP server so LLM agents can call the tools directly.
 - **Parallel where it counts** — duplicate detection and checksums fan out across CPU cores (`rayon`), with an optional `--threads` cap.
 - **Pipe-friendly** — honors `--color=auto|always|never` and `NO_COLOR`, and exits cleanly on a broken pipe (`tk tree | head` won't panic).
 - **Cross-platform** — Linux, macOS, and Windows.
@@ -39,7 +40,10 @@ tk --help            # list all commands
 tk <command> --help  # help for a specific command
 ```
 
-A global `--color <auto|always|never>` flag controls ANSI styling (default `auto`; also respects the `NO_COLOR` environment variable).
+Two global flags apply to every command:
+
+- `--color <auto|always|never>` controls ANSI styling (default `auto`; also respects the `NO_COLOR` environment variable).
+- `--format <text|json>` controls output (default `text`). `json` emits a parseable structure — raw byte sizes as numbers, modification times as unix seconds, and no ANSI — for piping into `jq`, scripts, or an LLM tool. Color is automatically disabled under `--format json`.
 
 ### Commands
 
@@ -69,6 +73,7 @@ A global `--color <auto|always|never>` flag controls ANSI styling (default `auto
 | `json` | | `format` / `validate` / `keys` for JSON (file or stdin) |
 | `clip` | | Read/write the system clipboard (`-i` in, `-o` out) |
 | `info` | | File details (`-f <path>`) or a system overview |
+| `mcp` | | Run as an MCP server over stdio (read-only tools for LLM agents) |
 
 ### Examples
 
@@ -84,7 +89,37 @@ tk recent -d 1                 # files modified in the last day
 tk count -l src/**/*.rs        # line counts (matches `wc -l`)
 tk checksum -a sha512 file.iso # SHA-512 of a file
 cat data.json | tk json format # pretty-print JSON from stdin
+tk stats --format json -t      # per-extension stats as JSON
+tk tree -L 2 --format json | jq '.children[].name'
 ```
+
+## For LLM agents
+
+`tk` is built to be driven by an LLM as well as a human.
+
+**Structured output.** Append `--format json` to any command and it returns a parseable structure instead of formatted text — raw numeric sizes, unix timestamps, and no ANSI escapes — so a model (or `jq`) never has to parse prose:
+
+```bash
+$ tk largest -n 2 --format json
+[
+  { "path": "media/tk-demo.gif", "size": 1048576 },
+  { "path": "Cargo.lock", "size": 41231 }
+]
+```
+
+**MCP server.** `tk mcp` speaks the [Model Context Protocol](https://modelcontextprotocol.io) over stdio, exposing a curated set of **read-only** tools (`ls`, `tree`, `find`, `search`, `stats`, `dups`, `largest`, `recent`, `empty`, `count`, `checksum`, `info`). Side-effecting commands (`extract`, `clip`, `dups --delete`) and ones redundant with an agent's built-in file reading (`cat`, `head`, `preview`) are deliberately left out, so a connected model can inspect a tree but never mutate it.
+
+Point any MCP client at the binary. For example, in a Claude Code / Cursor MCP config:
+
+```jsonc
+{
+  "mcpServers": {
+    "tk": { "command": "tk", "args": ["mcp"] }
+  }
+}
+```
+
+The transport is newline-delimited JSON-RPC 2.0 — no async runtime, no sidecar process. Each tool call re-invokes `tk … --format json` internally, so MCP results are identical to the CLI's JSON output.
 
 ## Development
 

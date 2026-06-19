@@ -285,3 +285,139 @@ fn test_tk_tree_ignore_crate() {
     assert!(stdout.contains("subdir"), "tree should show subdir");
     cleanup(&dir);
 }
+
+// --- --format json -----------------------------------------------------------
+
+/// Run tk and parse stdout as JSON, asserting success.
+fn tk_json(args: &[&str]) -> serde_json::Value {
+    let (stdout, stderr, success) = tk(args);
+    assert!(success, "command should succeed; stderr: {stderr}");
+    serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("output was not valid JSON: {e}\n{stdout}"))
+}
+
+#[test]
+fn test_json_ls_is_array_of_typed_entries() {
+    let dir = setup_temp_dir("json-ls");
+    let v = tk_json(&["ls", dir.to_str().unwrap(), "--format", "json"]);
+    let arr = v.as_array().expect("ls json should be an array");
+    let names: Vec<&str> = arr.iter().filter_map(|e| e["name"].as_str()).collect();
+    assert!(names.contains(&"hello.txt"));
+    let subdir = arr.iter().find(|e| e["name"] == "subdir").unwrap();
+    assert_eq!(subdir["type"], "dir");
+    // Sizes are raw numbers, not formatted strings.
+    assert!(arr[0]["size"].is_number(), "size must be numeric in json");
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_count_carries_all_metrics() {
+    let dir = setup_temp_dir("json-count");
+    let file = dir.join("hello.txt");
+    let v = tk_json(&["count", file.to_str().unwrap(), "--format", "json"]);
+    let rec = &v.as_array().unwrap()[0];
+    assert_eq!(rec["lines"], 3);
+    assert!(rec["words"].is_number());
+    assert!(rec["bytes"].is_number());
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_tree_is_nested() {
+    let dir = setup_temp_dir("json-tree");
+    let v = tk_json(&["tree", dir.to_str().unwrap(), "--format", "json"]);
+    assert_eq!(v["type"], "dir");
+    let children = v["children"].as_array().expect("tree should have children");
+    let subdir = children.iter().find(|c| c["name"] == "subdir").unwrap();
+    assert_eq!(subdir["type"], "dir");
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_search_omits_ansi() {
+    let dir = setup_temp_dir("json-search");
+    let v = tk_json(&["search", "hello", dir.to_str().unwrap(), "--format", "json"]);
+    let arr = v.as_array().unwrap();
+    assert!(!arr.is_empty(), "should find matches");
+    for hit in arr {
+        let text = hit["text"].as_str().unwrap();
+        assert!(
+            !text.contains('\u{1b}'),
+            "json text must not contain ANSI escapes"
+        );
+        assert!(hit["line"].is_number());
+    }
+    cleanup(&dir);
+}
+
+// --- mcp server --------------------------------------------------------------
+
+/// Feed newline-delimited JSON-RPC to `tk mcp` over stdin, return decoded
+/// responses (one per non-empty output line).
+fn tk_mcp(requests: &[&str]) -> Vec<serde_json::Value> {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let mut child = Command::new(tk_binary())
+        .arg("mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn tk mcp");
+    let input = requests.join("\n");
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| serde_json::from_str(l).expect("each mcp response is a JSON line"))
+        .collect()
+}
+
+#[test]
+fn test_mcp_initialize_and_list_tools() {
+    let resps = tk_mcp(&[
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+    ]);
+    // The notification produces no response, so two responses for three inputs.
+    assert_eq!(resps.len(), 2, "notification must not get a reply");
+    assert_eq!(resps[0]["result"]["serverInfo"]["name"], "tk");
+    let names: Vec<&str> = resps[1]["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+    assert!(names.contains(&"search"));
+    assert!(
+        !names.contains(&"extract"),
+        "side-effecting tools are not exposed"
+    );
+}
+
+#[test]
+fn test_mcp_tools_call_returns_json_content() {
+    let dir = setup_temp_dir("mcp-call");
+    let req = format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"count","arguments":{{"files":["{}"]}}}}}}"#,
+        dir.join("hello.txt")
+            .to_str()
+            .unwrap()
+            .replace('\\', "\\\\")
+    );
+    let resps = tk_mcp(&[&req]);
+    let result = &resps[0]["result"];
+    assert_eq!(result["isError"], false);
+    let text = result["content"][0]["text"].as_str().unwrap();
+    // The embedded text is itself the command's JSON output.
+    let inner: serde_json::Value = serde_json::from_str(text).unwrap();
+    assert_eq!(inner[0]["lines"], 3);
+    cleanup(&dir);
+}

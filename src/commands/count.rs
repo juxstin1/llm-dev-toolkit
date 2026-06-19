@@ -1,9 +1,20 @@
 use std::fs::File;
 use std::io::Read;
 
+use serde::Serialize;
+
 use crate::CountArgs;
 
 const BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
+
+#[derive(Serialize)]
+struct CountRecord {
+    path: String,
+    lines: u64,
+    words: u64,
+    chars: u64,
+    bytes: u64,
+}
 
 fn count_file(path: &str) -> Result<(u64, u64, u64, u64), String> {
     let mut file = File::open(path).map_err(|e| format!("{}: {}", path, e))?;
@@ -85,6 +96,23 @@ mod tests {
 }
 
 pub fn run(args: &CountArgs) -> Result<(), String> {
+    if super::json_enabled() {
+        // JSON always carries every metric; the -l/-w/-c/-b flags only shape
+        // text columns, which don't apply here.
+        let mut out = Vec::with_capacity(args.files.len());
+        for path in &args.files {
+            let (lines, words, chars, bytes) = count_file(path)?;
+            out.push(CountRecord {
+                path: path.clone(),
+                lines,
+                words,
+                chars,
+                bytes,
+            });
+        }
+        return super::emit_json(&out);
+    }
+
     let show_lines = args.lines || (!args.words && !args.chars && !args.bytes);
     let show_words = args.words || (!args.lines && !args.chars && !args.bytes);
     let show_bytes = args.bytes || (!args.words && !args.chars && !args.lines);

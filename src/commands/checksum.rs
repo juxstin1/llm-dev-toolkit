@@ -2,10 +2,21 @@ use std::path::Path;
 
 use md5::Md5;
 use rayon::prelude::*;
+use serde::Serialize;
 use sha2::{Sha224, Sha256, Sha384, Sha512};
 
 use super::{hash_file, with_rayon};
 use crate::ChecksumArgs;
+
+#[derive(Serialize)]
+struct Checksum {
+    path: String,
+    algorithm: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
 
 fn checksum_file(path: &str, algorithm: &str) -> Result<String, String> {
     let p = Path::new(path);
@@ -67,6 +78,27 @@ pub fn run(args: &ChecksumArgs) -> Result<(), String> {
             .map(|path| (path, checksum_file(path, algorithm)))
             .collect()
     });
+
+    if super::json_enabled() {
+        let out: Vec<Checksum> = results
+            .into_iter()
+            .map(|(path, result)| match result {
+                Ok(hash) => Checksum {
+                    path: path.clone(),
+                    algorithm: algorithm.to_string(),
+                    hash: Some(hash),
+                    error: None,
+                },
+                Err(e) => Checksum {
+                    path: path.clone(),
+                    algorithm: algorithm.to_string(),
+                    hash: None,
+                    error: Some(e),
+                },
+            })
+            .collect();
+        return super::emit_json(&out);
+    }
 
     for (path, result) in results {
         match result {

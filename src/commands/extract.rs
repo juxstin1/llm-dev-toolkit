@@ -18,20 +18,32 @@ pub fn run(args: &crate::ExtractArgs) -> Result<(), String> {
         .and_then(|n| n.to_str())
         .unwrap_or("");
 
-    if name.ends_with(".zip") {
-        extract_zip(archive_path, &output_dir)
+    let count = if name.ends_with(".zip") {
+        extract_zip(archive_path, &output_dir)?
     } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
-        extract_tar_gz(archive_path, &output_dir)
+        extract_tar_gz(archive_path, &output_dir)?
     } else if name.ends_with(".tar") {
-        extract_tar(archive_path, &output_dir)
+        extract_tar(archive_path, &output_dir)?
     } else if name.ends_with(".gz") {
-        extract_gz(archive_path, &output_dir)
+        extract_gz(archive_path, &output_dir)?
     } else {
-        Err(format!("Unsupported archive format: {}", name))
+        return Err(format!("Unsupported archive format: {}", name));
+    };
+
+    if crate::commands::json_enabled() {
+        return crate::commands::emit_json(&serde_json::json!({
+            "archive": args.archive,
+            "output_dir": output_dir,
+            "entries": count,
+        }));
     }
+
+    let entry_word = if count == 1 { "entry" } else { "entries" };
+    println!("Extracted {} {} to {}", count, entry_word, output_dir);
+    Ok(())
 }
 
-fn extract_zip(path: &Path, output_dir: &str) -> Result<(), String> {
+fn extract_zip(path: &Path, output_dir: &str) -> Result<usize, String> {
     let file = fs::File::open(path).map_err(|e| e.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
     let out_root = Path::new(output_dir);
@@ -65,29 +77,24 @@ fn extract_zip(path: &Path, output_dir: &str) -> Result<(), String> {
         }
     }
 
-    println!("Extracted {} entries to {}", count, output_dir);
-    Ok(())
+    Ok(count)
 }
 
-fn extract_tar_gz(path: &Path, output_dir: &str) -> Result<(), String> {
+fn extract_tar_gz(path: &Path, output_dir: &str) -> Result<usize, String> {
     let file = fs::File::open(path).map_err(|e| e.to_string())?;
     let decoder = flate2::read::GzDecoder::new(file);
     let mut archive = tar::Archive::new(decoder);
     archive.unpack(output_dir).map_err(|e| e.to_string())?;
     let entries = fs::read_dir(output_dir).map_err(|e| e.to_string())?;
-    let count = entries.filter_map(|e| e.ok()).count();
-    println!("Extracted {} entries to {}", count, output_dir);
-    Ok(())
+    Ok(entries.filter_map(|e| e.ok()).count())
 }
 
-fn extract_tar(path: &Path, output_dir: &str) -> Result<(), String> {
+fn extract_tar(path: &Path, output_dir: &str) -> Result<usize, String> {
     let file = fs::File::open(path).map_err(|e| e.to_string())?;
     let mut archive = tar::Archive::new(file);
     archive.unpack(output_dir).map_err(|e| e.to_string())?;
     let entries = fs::read_dir(output_dir).map_err(|e| e.to_string())?;
-    let count = entries.filter_map(|e| e.ok()).count();
-    println!("Extracted {} entries to {}", count, output_dir);
-    Ok(())
+    Ok(entries.filter_map(|e| e.ok()).count())
 }
 
 #[cfg(test)]
@@ -126,7 +133,7 @@ mod tests {
     }
 }
 
-fn extract_gz(path: &Path, output_dir: &str) -> Result<(), String> {
+fn extract_gz(path: &Path, output_dir: &str) -> Result<usize, String> {
     let file = fs::File::open(path).map_err(|e| e.to_string())?;
     let mut decoder = flate2::read::GzDecoder::new(file);
     let out_name = path
@@ -136,6 +143,5 @@ fn extract_gz(path: &Path, output_dir: &str) -> Result<(), String> {
     let out_path = Path::new(output_dir).join(out_name);
     let mut out_file = fs::File::create(&out_path).map_err(|e| e.to_string())?;
     std::io::copy(&mut decoder, &mut out_file).map_err(|e| e.to_string())?;
-    println!("Extracted to {}", out_path.display());
-    Ok(())
+    Ok(1)
 }
