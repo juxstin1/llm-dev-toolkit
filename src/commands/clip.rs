@@ -53,13 +53,29 @@ pub fn run(args: &crate::ClipArgs) -> Result<(), String> {
             }
         };
 
+        let json = crate::commands::json_enabled();
         // Prefer the real system clipboard; fall back to a file-backed store
         // (e.g. headless Linux, no X11/Wayland) and say so honestly.
         match Clipboard::new().and_then(|mut cb| cb.set_text(content.clone())) {
-            Ok(()) => println!("Copied {} bytes to the system clipboard", content.len()),
+            Ok(()) => {
+                if json {
+                    return crate::commands::emit_json(&serde_json::json!({
+                        "copied_bytes": content.len(),
+                        "target": "system",
+                    }));
+                }
+                println!("Copied {} bytes to the system clipboard", content.len());
+            }
             Err(_) => {
                 write_clipboard(&content)?;
                 let path = clipboard_path()?;
+                if json {
+                    return crate::commands::emit_json(&serde_json::json!({
+                        "copied_bytes": content.len(),
+                        "target": "file",
+                        "path": path.display().to_string(),
+                    }));
+                }
                 eprintln!(
                     "System clipboard unavailable; stored {} bytes in {}",
                     content.len(),
@@ -69,10 +85,14 @@ pub fn run(args: &crate::ClipArgs) -> Result<(), String> {
         }
     } else {
         // `-o` and the default both read; the system clipboard wins, else the file store.
-        match Clipboard::new().and_then(|mut cb| cb.get_text()) {
-            Ok(text) => print!("{}", text),
-            Err(_) => print!("{}", read_clipboard()?),
+        let text = match Clipboard::new().and_then(|mut cb| cb.get_text()) {
+            Ok(text) => text,
+            Err(_) => read_clipboard()?,
+        };
+        if crate::commands::json_enabled() {
+            return crate::commands::emit_json(&serde_json::json!({ "content": text }));
         }
+        print!("{}", text);
     }
     Ok(())
 }

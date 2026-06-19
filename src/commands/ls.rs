@@ -2,6 +2,8 @@ use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
 
+use serde::Serialize;
+
 use super::{ansi, color_enabled};
 use crate::LsArgs;
 
@@ -10,6 +12,31 @@ enum EntryKind {
     Dir,
     Symlink,
     File,
+}
+
+impl EntryKind {
+    fn as_str(&self) -> &'static str {
+        match self {
+            EntryKind::Dir => "dir",
+            EntryKind::Symlink => "symlink",
+            EntryKind::File => "file",
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct LsEntry {
+    name: String,
+    #[serde(rename = "type")]
+    kind: &'static str,
+    size: u64,
+    modified: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    permissions: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    nlink: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link_target: Option<String>,
 }
 
 pub fn run(args: &LsArgs) -> Result<(), String> {
@@ -183,9 +210,65 @@ fn sort_entries(entries: &mut [fs::DirEntry]) {
     });
 }
 
+#[cfg(unix)]
+fn perms_string(meta: &fs::Metadata, kind: &EntryKind) -> String {
+    use std::os::unix::fs::PermissionsExt;
+    format_permissions(meta.permissions().mode(), kind)
+}
+
+#[cfg(not(unix))]
+fn perms_string(_meta: &fs::Metadata, kind: &EntryKind) -> String {
+    format_permissions(0, kind)
+}
+
+fn list_entries_json(entries: &[fs::DirEntry], long: bool) -> Result<(), String> {
+    let mut out = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let kind = classify(entry);
+        let meta = fs::symlink_metadata(entry.path()).ok();
+        let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+        let modified = meta
+            .as_ref()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs() as i64);
+
+        let (permissions, nlink, link_target) = if long {
+            let permissions = meta.as_ref().map(|m| perms_string(m, &kind));
+            let nlink = meta.as_ref().map(get_nlink);
+            let link_target = if kind == EntryKind::Symlink {
+                fs::read_link(entry.path())
+                    .ok()
+                    .map(|t| t.display().to_string())
+            } else {
+                None
+            };
+            (permissions, nlink, link_target)
+        } else {
+            (None, None, None)
+        };
+
+        out.push(LsEntry {
+            name,
+            kind: kind.as_str(),
+            size,
+            modified,
+            permissions,
+            nlink,
+            link_target,
+        });
+    }
+    super::emit_json(&out)
+}
+
 fn list_entries(path: &Path, show_all: bool, long: bool) -> Result<(), String> {
     let mut entries = read_entries(path, show_all)?;
     sort_entries(&mut entries);
+
+    if super::json_enabled() {
+        return list_entries_json(&entries, long);
+    }
 
     if long {
         let mut max_links_len = 1usize;

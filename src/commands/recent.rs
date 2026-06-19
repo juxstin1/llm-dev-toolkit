@@ -1,8 +1,17 @@
 use std::path::Path;
 use std::time::SystemTime;
 
+use serde::Serialize;
+
 use super::{ansi, paint, rel_to, walk_entries, WalkConfig};
 use crate::RecentArgs;
+
+#[derive(Serialize)]
+struct RecentEntry {
+    path: String,
+    modified: Option<i64>,
+    size: u64,
+}
 
 pub fn run(args: &RecentArgs) -> Result<(), String> {
     let root = args.path.as_deref().unwrap_or(".");
@@ -48,6 +57,22 @@ pub fn run(args: &RecentArgs) -> Result<(), String> {
 
     entries.sort_by_key(|e| std::cmp::Reverse(e.0));
     entries.truncate(args.count);
+
+    if super::json_enabled() {
+        let root_path = Path::new(root);
+        let out: Vec<RecentEntry> = entries
+            .iter()
+            .map(|(modified, path)| RecentEntry {
+                path: rel_to(path, root_path).display().to_string(),
+                modified: modified
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()
+                    .map(|d| d.as_secs() as i64),
+                size: path.metadata().map(|m| m.len()).unwrap_or(0),
+            })
+            .collect();
+        return super::emit_json(&out);
+    }
 
     for (modified, path) in &entries {
         let date = match modified.duration_since(SystemTime::UNIX_EPOCH) {

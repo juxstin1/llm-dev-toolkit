@@ -34,7 +34,15 @@ pub fn run(args: &crate::JsonArgs) -> Result<(), String> {
         }
         crate::JsonAction::Validate { file } => {
             let input = read_input(file)?;
-            match serde_json::from_str::<serde_json::Value>(&input) {
+            let result = serde_json::from_str::<serde_json::Value>(&input);
+            if crate::commands::json_enabled() {
+                let report = serde_json::json!({
+                    "valid": result.is_ok(),
+                    "error": result.as_ref().err().map(|e| e.to_string()),
+                });
+                return crate::commands::emit_json(&report);
+            }
+            match result {
                 Ok(_) => println!("valid"),
                 Err(e) => println!("invalid: {}", e),
             }
@@ -45,6 +53,10 @@ pub fn run(args: &crate::JsonArgs) -> Result<(), String> {
                 serde_json::from_str(&input).map_err(|e| format!("Invalid JSON: {}", e))?;
             match value {
                 serde_json::Value::Object(map) => {
+                    if crate::commands::json_enabled() {
+                        let keys: Vec<&String> = map.keys().collect();
+                        return crate::commands::emit_json(&keys);
+                    }
                     for key in map.keys() {
                         println!("{}", key);
                     }

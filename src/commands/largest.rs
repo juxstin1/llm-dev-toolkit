@@ -1,8 +1,16 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use serde::Serialize;
+
 use super::{ansi, paint, rel_to, walk_entries, WalkConfig};
 use crate::LargestArgs;
+
+#[derive(Serialize)]
+struct SizedPath {
+    path: String,
+    size: u64,
+}
 
 pub fn run(args: &LargestArgs) -> Result<(), String> {
     let root = args.path.as_deref().unwrap_or(".");
@@ -40,6 +48,17 @@ fn largest_files(root: &str, count: usize) -> Result<(), String> {
     entries.truncate(count);
 
     let root_path = Path::new(root);
+    if super::json_enabled() {
+        let out: Vec<SizedPath> = entries
+            .iter()
+            .map(|(size, path)| SizedPath {
+                path: rel_to(path, root_path).display().to_string(),
+                size: *size,
+            })
+            .collect();
+        return super::emit_json(&out);
+    }
+
     for (i, (size, path)) in entries.iter().enumerate() {
         let rel = rel_to(path, root_path);
         println!(
@@ -82,6 +101,25 @@ fn largest_dirs(root: &str, count: usize) -> Result<(), String> {
     sorted.truncate(count);
 
     let root_path = Path::new(root);
+    if super::json_enabled() {
+        let out: Vec<SizedPath> = sorted
+            .iter()
+            .map(|(path, size)| {
+                let rel = rel_to(path, root_path);
+                let display = if rel.as_os_str().is_empty() {
+                    ".".to_string()
+                } else {
+                    rel.display().to_string()
+                };
+                SizedPath {
+                    path: display,
+                    size: *size,
+                }
+            })
+            .collect();
+        return super::emit_json(&out);
+    }
+
     for (i, (path, size)) in sorted.iter().enumerate() {
         let rel = rel_to(path, root_path);
         let display = if rel.as_os_str().is_empty() {

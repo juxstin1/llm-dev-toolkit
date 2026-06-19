@@ -1,6 +1,34 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct SystemInfo {
+    os: String,
+    cpu_cores: usize,
+    current_dir: String,
+    home_dir: String,
+    disk_usage_bytes: u64,
+}
+
+#[derive(Serialize)]
+struct FileInfo {
+    file: String,
+    path: String,
+    size: u64,
+    #[serde(rename = "type")]
+    kind: String,
+    extension: String,
+    mime: String,
+    modified: Option<i64>,
+    created: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    readonly: Option<bool>,
+}
+
 fn system_info() -> Result<(), String> {
     let os = std::env::consts::OS;
     let cpus = std::thread::available_parallelism()
@@ -16,6 +44,16 @@ fn system_info() -> Result<(), String> {
         std::env::var("HOME").unwrap_or_default()
     };
     let disk_usage = dir_size(".")?;
+
+    if crate::commands::json_enabled() {
+        return crate::commands::emit_json(&SystemInfo {
+            os: os.to_string(),
+            cpu_cores: cpus,
+            current_dir,
+            home_dir: home,
+            disk_usage_bytes: disk_usage,
+        });
+    }
 
     println!("OS:              {}", os);
     println!("CPU Cores:       {}", cpus);
@@ -61,6 +99,34 @@ fn file_info(path: &str) -> Result<(), String> {
     let mime = mime_guess::from_path(path)
         .first_or_octet_stream()
         .to_string();
+
+    if crate::commands::json_enabled() {
+        let perms = meta.permissions();
+        #[cfg(unix)]
+        let (mode, readonly) = {
+            use std::os::unix::fs::PermissionsExt;
+            (Some(format!("{:o}", perms.mode() & 0o777)), None)
+        };
+        #[cfg(not(unix))]
+        let (mode, readonly) = (None, Some(perms.readonly()));
+
+        return crate::commands::emit_json(&FileInfo {
+            file: p
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+            path: path.to_string(),
+            size,
+            kind: file_type.to_string(),
+            extension: ext.clone(),
+            mime,
+            modified,
+            created,
+            mode,
+            readonly,
+        });
+    }
 
     println!(
         "File:            {}",

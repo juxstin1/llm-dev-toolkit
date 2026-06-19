@@ -26,12 +26,22 @@ use std::sync::OnceLock;
 use std::time::UNIX_EPOCH;
 
 static COLOR_ENABLED: OnceLock<bool> = OnceLock::new();
+static OUTPUT_FORMAT: OnceLock<OutputFormat> = OnceLock::new();
 
 #[derive(Clone, Copy, PartialEq, ValueEnum)]
 pub enum ColorChoice {
     Auto,
     Always,
     Never,
+}
+
+/// How a command renders its result. `Text` is the human-facing default;
+/// `Json` emits a machine-readable structure to stdout (raw numeric sizes,
+/// unix timestamps, no ANSI) for piping into `jq`, scripts, or an LLM tool.
+#[derive(Clone, Copy, PartialEq, ValueEnum)]
+pub enum OutputFormat {
+    Text,
+    Json,
 }
 
 pub fn init_color(choice: ColorChoice) {
@@ -43,8 +53,29 @@ pub fn init_color(choice: ColorChoice) {
     let _ = COLOR_ENABLED.set(enabled);
 }
 
+pub fn init_format(format: OutputFormat) {
+    let _ = OUTPUT_FORMAT.set(format);
+}
+
+pub fn json_enabled() -> bool {
+    matches!(OUTPUT_FORMAT.get(), Some(OutputFormat::Json))
+}
+
 pub fn color_enabled() -> bool {
+    // JSON output is never colorized, regardless of --color, so structured
+    // consumers never have to strip escape codes.
+    if json_enabled() {
+        return false;
+    }
     COLOR_ENABLED.get().copied().unwrap_or(true)
+}
+
+/// Serialize `value` as pretty JSON to stdout. The single emit path for every
+/// command's `--format json` branch.
+pub fn emit_json<T: serde::Serialize>(value: &T) -> Result<(), String> {
+    let s = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
+    println!("{}", s);
+    Ok(())
 }
 
 /// ANSI escape codes shared across commands. Use [`paint`] rather than
