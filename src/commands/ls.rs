@@ -132,7 +132,7 @@ fn total_blocks_count(entries: &[fs::DirEntry]) -> u64 {
     use std::os::unix::fs::MetadataExt;
     entries
         .iter()
-        .filter_map(|e| e.symlink_metadata().ok())
+        .filter_map(|e| fs::symlink_metadata(e.path()).ok())
         .map(|m| m.blocks())
         .sum()
 }
@@ -218,7 +218,10 @@ fn list_entries(path: &Path, show_all: bool, long: bool) -> Result<(), String> {
             };
 
             #[cfg(unix)]
-            let perms = format_permissions(meta.permissions().mode(), &kind);
+            let perms = {
+                use std::os::unix::fs::PermissionsExt;
+                format_permissions(meta.permissions().mode(), &kind)
+            };
             #[cfg(not(unix))]
             let perms = format_permissions(0, &kind);
 

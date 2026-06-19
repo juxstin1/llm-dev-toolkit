@@ -36,7 +36,7 @@ fn largest_files(root: &str, count: usize) -> Result<(), String> {
         entries.push((meta.len(), entry.path().to_path_buf()));
     }
 
-    entries.sort_by(|a, b| b.0.cmp(&a.0));
+    entries.sort_by_key(|e| std::cmp::Reverse(e.0));
     entries.truncate(count);
 
     let root_path = Path::new(root);
@@ -78,7 +78,7 @@ fn largest_dirs(root: &str, count: usize) -> Result<(), String> {
     }
 
     let mut sorted: Vec<_> = dir_sizes.into_iter().collect();
-    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    sorted.sort_by_key(|e| std::cmp::Reverse(e.1));
     sorted.truncate(count);
 
     let root_path = Path::new(root);

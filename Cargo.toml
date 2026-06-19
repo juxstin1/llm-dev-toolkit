@@ -20,7 +20,7 @@ md-5 = "0.10"
 filetime = "0.2"
 humansize = "2"
 base64 = "0.22"
-zip = "2"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 tar = "0.4"
 flate2 = "1"
 syntect = { version = "5", default-features = false, features = ["default-fancy"] }

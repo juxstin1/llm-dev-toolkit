@@ -68,8 +68,8 @@ fn collect_entries(dir: &str) -> Result<Vec<Entry>, String> {
 
 fn sort_entries(mut entries: Vec<Entry>, by: &str, reverse: bool, dirs_first: bool) -> Vec<Entry> {
     match by {
-        "size" => entries.sort_by(|a, b| a.size.cmp(&b.size)),
-        "date" => entries.sort_by(|a, b| a.modified.cmp(&b.modified)),
+        "size" => entries.sort_by_key(|e| e.size),
+        "date" => entries.sort_by_key(|e| e.modified),
         "ext" => entries.sort_by(|a, b| a.extension.cmp(&b.extension)),
         _ => entries.sort_by(|a, b| a.name.cmp(&b.name)),
     }

@@ -93,13 +93,12 @@ pub fn run_preview(args: &PreviewArgs) -> Result<(), String> {
         }
 
         if args.number {
-            let mut n = 1;
             let mut highlighter = HighlightLines::new(syntax, theme);
-            for line in LinesWithEndings::from(&content) {
+            for (i, line) in LinesWithEndings::from(&content).enumerate() {
                 let ranges = highlighter
                     .highlight_line(line, &ss)
                     .map_err(|e| format!("highlight error: {}", e))?;
-                print!("{:>6}\t", n);
+                print!("{:>6}\t", i + 1);
                 for (style, text) in &ranges {
                     let trimmed = text.trim_end_matches('\n').trim_end_matches('\r');
                     if !trimmed.is_empty() {
@@ -107,7 +106,6 @@ pub fn run_preview(args: &PreviewArgs) -> Result<(), String> {
                     }
                 }
                 println!();
-                n += 1;
             }
         } else {
             let mut highlighter = HighlightLines::new(syntax, theme);
