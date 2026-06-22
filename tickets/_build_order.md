@@ -20,7 +20,9 @@ Slice 8 is implemented and verified in
 [`docs/proofs/2026-06-22-sec-001-clipboard-fallback.md`](../docs/proofs/2026-06-22-sec-001-clipboard-fallback.md).
 Slice 9 is implemented and verified in
 [`docs/proofs/2026-06-22-maint-001-demo-ci.md`](../docs/proofs/2026-06-22-maint-001-demo-ci.md).
-Slice 10 remains open.
+Slice 10 is implemented and verified in
+[`docs/proofs/2026-06-22-arch-002-mcp-tool-table.md`](../docs/proofs/2026-06-22-arch-002-mcp-tool-table.md).
+All slices are complete.
 
 ## Ordered Slices
 

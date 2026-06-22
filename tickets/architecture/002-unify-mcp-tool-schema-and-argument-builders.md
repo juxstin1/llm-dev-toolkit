@@ -13,7 +13,7 @@ files:
   - src/main.rs:402-428
 depends_on: []
 tags: [mcp, schema-drift]
-status: open
+status: done
 ---
 
 ## What
@@ -44,3 +44,9 @@ then have `tools/list` and `tools/call` both consume that table.
 
 Is the current duplication intentional to keep schemas easy to read, or would a
 small table abstraction be acceptable?
+
+## Implementation
+
+Implemented in build slice 10. `ToolDef` now owns both schema metadata and the
+CLI argument builder, and tests cover all advertised MCP builders. Proof:
+`docs/proofs/2026-06-22-arch-002-mcp-tool-table.md`.

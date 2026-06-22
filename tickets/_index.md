@@ -2,8 +2,7 @@
 
 Build sequencing lives in [_build_order.md](_build_order.md).
 
-Status: `ARCH-001`, `REL-001` through `REL-006`, `SEC-001`, and `MAINT-001`
-are done. `ARCH-002` remains open.
+Status: all tickets in this recon set are done.
 
 | id | title | lens | severity | effort | blast_radius | depends_on |
 | --- | --- | --- | --- | --- | --- | --- |
