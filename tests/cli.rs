@@ -285,3 +285,87 @@ fn test_tk_tree_ignore_crate() {
     assert!(stdout.contains("subdir"), "tree should show subdir");
     cleanup(&dir);
 }
+
+#[test]
+fn test_tk_spec0_list() {
+    let (stdout, _, success) = tk(&["spec0", "list"]);
+    assert!(success, "spec0 list should succeed");
+    assert!(stdout.contains("/spec0-plan"), "should list plan command");
+    assert!(
+        stdout.contains("claude"),
+        "should list claude install target"
+    );
+    assert!(stdout.contains("codex"), "should list codex install target");
+    assert!(
+        stdout.contains("opencode"),
+        "should list opencode install target"
+    );
+}
+
+#[test]
+fn test_tk_spec0_print() {
+    let (stdout, _, success) = tk(&["spec0", "print", "spec0-plan"]);
+    assert!(success, "spec0 print should succeed");
+    assert!(
+        stdout.contains("# Spec0 Plan"),
+        "should print bundled prompt"
+    );
+    assert!(
+        stdout.contains("argument-hint"),
+        "should include command front matter"
+    );
+}
+
+#[test]
+fn test_tk_spec0_project_install_claude() {
+    let dir = setup_temp_dir("spec0-claude");
+    let (stdout, _, success) = tk(&[
+        "spec0",
+        "install",
+        "--agent",
+        "claude",
+        "--scope",
+        "project",
+        "--dir",
+        dir.to_str().unwrap(),
+    ]);
+    assert!(success, "spec0 install claude should succeed");
+    assert!(
+        stdout.contains("spec0-plan.md"),
+        "should report written file"
+    );
+    assert!(
+        dir.join(".claude")
+            .join("commands")
+            .join("spec0-plan.md")
+            .exists(),
+        "should install Claude command"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_spec0_project_install_codex() {
+    let dir = setup_temp_dir("spec0-codex");
+    let (stdout, _, success) = tk(&[
+        "spec0",
+        "install",
+        "--agent",
+        "codex",
+        "--scope",
+        "project",
+        "--dir",
+        dir.to_str().unwrap(),
+    ]);
+    assert!(success, "spec0 install codex should succeed");
+    assert!(stdout.contains("SKILL.md"), "should report written skill");
+    assert!(
+        dir.join(".agents")
+            .join("skills")
+            .join("spec0")
+            .join("SKILL.md")
+            .exists(),
+        "should install Codex skill"
+    );
+    cleanup(&dir);
+}

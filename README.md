@@ -15,6 +15,7 @@ A fast, single-binary command-line toolkit for the everyday file chores that com
 - **Single static binary** — one `tk` executable, no runtime dependencies.
 - **Parallel where it counts** — duplicate detection and checksums fan out across CPU cores (`rayon`), with an optional `--threads` cap.
 - **Pipe-friendly** — honors `--color=auto|always|never` and `NO_COLOR`, and exits cleanly on a broken pipe (`tk tree | head` won't panic).
+- **Agent workflow toolkit** — bundles Spec0 slash-command prompts for Claude Code, Codex, and OpenCode.
 - **Cross-platform** — Linux, macOS, and Windows.
 
 ## Install
@@ -69,6 +70,7 @@ A global `--color <auto|always|never>` flag controls ANSI styling (default `auto
 | `json` | | `format` / `validate` / `keys` for JSON (file or stdin) |
 | `clip` | | Read/write the system clipboard (`-i` in, `-o` out) |
 | `info` | | File details (`-f <path>`) or a system overview |
+| `spec0` | | List, print, or install Spec0 agent workflow commands |
 
 ### Examples
 
@@ -84,7 +86,58 @@ tk recent -d 1                 # files modified in the last day
 tk count -l src/**/*.rs        # line counts (matches `wc -l`)
 tk checksum -a sha512 file.iso # SHA-512 of a file
 cat data.json | tk json format # pretty-print JSON from stdin
+tk spec0 list                  # show bundled Spec0 commands and install targets
+tk spec0 install --agent all --scope user # install Spec0 into local agent config dirs
 ```
+
+## Spec0 Agent Commands
+
+Spec0 is a small agent workflow framework for moving from rough intent to a bounded, verifiable implementation loop:
+
+1. Orient around the repo, branch, dirty files, and local agent instructions.
+2. Frame the goal, non-goals, assumptions, target files, and verification.
+3. Plan small implementation slices.
+4. Execute the next useful slice.
+5. Verify with the narrowest meaningful checks.
+6. Leave a compact handoff.
+
+The toolkit bundles Spec0 as reusable prompts under [`spec0/`](spec0/) and can install them into the local command surfaces used by Claude Code, Codex, and OpenCode.
+
+### Installed commands
+
+| Command | Purpose |
+|---|---|
+| `/spec0` | Run the full orient, frame, plan, execute, verify, handoff loop |
+| `/spec0-plan` | Convert a rough request into a bounded implementation plan |
+| `/spec0-exec` | Execute the next planned slice and verify it |
+| `/spec0-review` | Review current work against the Spec0 frame |
+| `/spec0-handoff` | Summarize status for the next agent session |
+
+### Install targets
+
+`tk spec0 install` writes the same workflow prompts to the right location for each agent:
+
+| Agent | User scope | Project scope | Invoke |
+|---|---|---|---|
+| Claude Code | `~/.claude/commands/*.md` | `.claude/commands/*.md` | `/spec0` |
+| OpenCode | `~/.config/opencode/commands/*.md` | `.opencode/commands/*.md` | `/spec0` |
+| Codex | `~/.agents/skills/spec0/SKILL.md` plus `~/.codex/prompts/*.md` | `.agents/skills/spec0/SKILL.md` | `$spec0` skill or `/prompts:spec0` shim |
+
+Codex custom prompts are deprecated in favor of Skills, so the durable Codex path is the installed `spec0` skill. The prompt shims are included for CLI/IDE slash-menu convenience.
+
+### Install examples
+
+```bash
+tk spec0 list
+tk spec0 print spec0-plan
+tk spec0 install --agent all --scope user --dry-run
+tk spec0 install --agent all --scope user
+tk spec0 install --agent all --scope project --dir .
+tk spec0 install --agent codex --scope project --dir .
+tk spec0 install --agent claude --scope user --force
+```
+
+Existing files are skipped by default; pass `--force` when you intentionally want to overwrite them.
 
 ## Development
 

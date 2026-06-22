@@ -12,6 +12,7 @@ pub mod ls;
 pub mod recent;
 pub mod search;
 pub mod sort;
+pub mod spec0;
 pub mod stats;
 pub mod tree;
 pub mod view;
