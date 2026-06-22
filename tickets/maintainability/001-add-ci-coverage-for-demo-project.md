@@ -12,7 +12,7 @@ files:
   - .github/workflows/ci.yml:25-32
 depends_on: []
 tags: [ci, demo]
-status: open
+status: done
 ---
 
 ## What
@@ -43,3 +43,9 @@ the first step unless runtime cost is acceptable.
 
 Should the demo have a dedicated `npm run check` script before CI is wired to
 it?
+
+## Implementation
+
+Implemented in build slice 9. The demo now has `npm run check`, and CI runs
+`npm ci` plus that check in a dedicated demo job. Proof:
+`docs/proofs/2026-06-22-maint-001-demo-ci.md`.

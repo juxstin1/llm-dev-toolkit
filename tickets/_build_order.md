@@ -18,7 +18,9 @@ Slices 1-7 are implemented and verified in
 [`docs/proofs/2026-06-22-build-slices-1-7.md`](../docs/proofs/2026-06-22-build-slices-1-7.md).
 Slice 8 is implemented and verified in
 [`docs/proofs/2026-06-22-sec-001-clipboard-fallback.md`](../docs/proofs/2026-06-22-sec-001-clipboard-fallback.md).
-Slices 9-10 remain open.
+Slice 9 is implemented and verified in
+[`docs/proofs/2026-06-22-maint-001-demo-ci.md`](../docs/proofs/2026-06-22-maint-001-demo-ci.md).
+Slice 10 remains open.
 
 ## Ordered Slices
 

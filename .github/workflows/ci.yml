@@ -30,3 +30,20 @@ jobs:
         run: cargo test --all
       - name: Build (release)
         run: cargo build --release
+
+  demo:
+    name: Demo check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: demo/package-lock.json
+      - name: Install demo dependencies
+        working-directory: demo
+        run: npm ci
+      - name: Check demo TypeScript
+        working-directory: demo
+        run: npm run check
