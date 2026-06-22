@@ -68,7 +68,8 @@ fn system_info() -> Result<(), String> {
 }
 
 fn file_info(path: &str) -> Result<(), String> {
-    let meta = fs::metadata(path).map_err(|e| format!("Cannot access '{}': {}", path, e))?;
+    let meta =
+        fs::symlink_metadata(path).map_err(|e| format!("Cannot access '{}': {}", path, e))?;
     let p = Path::new(path);
 
     let size = meta.len();
@@ -83,10 +84,11 @@ fn file_info(path: &str) -> Result<(), String> {
             .map(|d| d.as_secs() as i64)
     });
 
-    let file_type = if meta.is_dir() {
-        "directory"
-    } else if meta.is_symlink() {
+    let inspected_type = meta.file_type();
+    let file_type = if inspected_type.is_symlink() {
         "symlink"
+    } else if inspected_type.is_dir() {
+        "directory"
     } else {
         "file"
     };

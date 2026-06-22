@@ -21,6 +21,7 @@ pub fn run(args: &crate::SearchArgs) -> Result<(), String> {
 
     let pattern = &args.pattern;
     let root = args.path.as_deref().unwrap_or(".");
+    let ext_filter = args.ext.as_deref().map(|ext| ext.trim_start_matches('.'));
 
     let config = WalkConfig {
         root,
@@ -34,7 +35,7 @@ pub fn run(args: &crate::SearchArgs) -> Result<(), String> {
         }
         let file_path = entry.path();
 
-        if let Some(ref ext) = args.ext {
+        if let Some(ext) = ext_filter {
             match file_path.extension().and_then(|e| e.to_str()) {
                 Some(e) if e.eq_ignore_ascii_case(ext) => {}
                 _ => continue,
@@ -63,6 +64,7 @@ pub fn run(args: &crate::SearchArgs) -> Result<(), String> {
 fn run_json(args: &crate::SearchArgs) -> Result<(), String> {
     let pattern = &args.pattern;
     let root = args.path.as_deref().unwrap_or(".");
+    let ext_filter = args.ext.as_deref().map(|ext| ext.trim_start_matches('.'));
 
     let config = WalkConfig {
         root,
@@ -79,7 +81,7 @@ fn run_json(args: &crate::SearchArgs) -> Result<(), String> {
         }
         let file_path = entry.path();
 
-        if let Some(ref ext) = args.ext {
+        if let Some(ext) = ext_filter {
             match file_path.extension().and_then(|e| e.to_str()) {
                 Some(e) if e.eq_ignore_ascii_case(ext) => {}
                 _ => continue,

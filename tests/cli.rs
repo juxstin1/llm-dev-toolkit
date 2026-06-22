@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn tk_binary() -> PathBuf {
@@ -40,6 +40,16 @@ fn setup_temp_dir(name: &str) -> PathBuf {
 
 fn cleanup(dir: &PathBuf) {
     let _ = std::fs::remove_dir_all(dir);
+}
+
+#[cfg(unix)]
+fn symlink_file(target: &Path, link: &Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(target, link)
+}
+
+#[cfg(windows)]
+fn symlink_file(target: &Path, link: &Path) -> std::io::Result<()> {
+    std::os::windows::fs::symlink_file(target, link)
 }
 
 #[test]
@@ -286,6 +296,100 @@ fn test_tk_tree_ignore_crate() {
     cleanup(&dir);
 }
 
+#[test]
+fn test_tk_tree_all_still_excludes_git_dir() {
+    let dir = setup_temp_dir("tree-git");
+    std::fs::create_dir(dir.join(".git")).unwrap();
+    std::fs::write(dir.join(".git").join("config"), b"[core]\n").unwrap();
+    let (stdout, _, success) = tk(&[
+        "tree",
+        dir.to_str().unwrap(),
+        "-a",
+        "-L",
+        "1",
+        "--color",
+        "never",
+    ]);
+    assert!(success, "tree -a should succeed");
+    assert!(
+        !stdout.contains(".git"),
+        "tree -a must not surface .git internals, got: {stdout}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_ltd_hides_hidden_entries() {
+    let dir = setup_temp_dir("ltd-hidden");
+    std::fs::write(dir.join(".hidden"), b"secret\n").unwrap();
+    std::fs::create_dir(dir.join(".git")).unwrap();
+    std::fs::write(dir.join(".git").join("config"), b"[core]\n").unwrap();
+    let (stdout, _, success) = tk(&["ltd", "-L", "1", dir.to_str().unwrap(), "--color", "never"]);
+    assert!(success, "ltd should succeed");
+    assert!(
+        stdout.contains("hello.txt"),
+        "ltd should show visible files"
+    );
+    assert!(
+        !stdout.contains(".hidden") && !stdout.contains(".git"),
+        "ltd must hide dot entries by default, got: {stdout}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_checksum_invalid_algorithm_fails() {
+    let dir = setup_temp_dir("checksum-invalid");
+    let file = dir.join("hello.txt");
+    let (stdout, stderr, success) = tk(&["checksum", file.to_str().unwrap(), "-a", "sha1"]);
+    assert!(!success, "unsupported checksum algorithm should fail");
+    assert!(
+        stdout.trim().is_empty(),
+        "stdout should stay empty on error"
+    );
+    assert!(
+        stderr.contains("Unsupported algorithm"),
+        "stderr should explain unsupported algorithm, got: {stderr}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_ff_rejects_invalid_type_filter() {
+    let dir = setup_temp_dir("ff-invalid-type");
+    let (_stdout, stderr, success) = tk(&["ff", "hello", dir.to_str().unwrap(), "-t", "x"]);
+    assert!(!success, "invalid ff type filter should fail");
+    assert!(
+        stderr.contains("Invalid type filter"),
+        "stderr should explain invalid type filter, got: {stderr}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_sort_rejects_invalid_sort_field() {
+    let dir = setup_temp_dir("sort-invalid-field");
+    let (_stdout, stderr, success) = tk(&["sort", dir.to_str().unwrap(), "--by", "nope"]);
+    assert!(!success, "invalid sort field should fail");
+    assert!(
+        stderr.contains("Invalid sort field"),
+        "stderr should explain invalid sort field, got: {stderr}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_dups_rejects_invalid_min_size() {
+    let dir = setup_temp_dir("dups-invalid-size");
+    let (_stdout, stderr, success) = tk(&["dups", dir.to_str().unwrap(), "-m", "nonsense"]);
+    assert!(!success, "invalid duplicate-size filter should fail");
+    assert!(
+        stderr.contains("Invalid minimum size"),
+        "stderr should explain invalid size filter, got: {stderr}"
+    );
+    cleanup(&dir);
+}
+
 // --- --format json -----------------------------------------------------------
 
 /// Run tk and parse stdout as JSON, asserting success.
@@ -334,6 +438,44 @@ fn test_json_tree_is_nested() {
 }
 
 #[test]
+fn test_json_tree_all_still_excludes_git_dir() {
+    let dir = setup_temp_dir("json-tree-git");
+    std::fs::create_dir(dir.join(".git")).unwrap();
+    std::fs::write(dir.join(".git").join("config"), b"[core]\n").unwrap();
+    let v = tk_json(&[
+        "tree",
+        dir.to_str().unwrap(),
+        "-a",
+        "-L",
+        "1",
+        "--format",
+        "json",
+    ]);
+    let children = v["children"].as_array().expect("tree should have children");
+    assert!(
+        !children.iter().any(|child| child["name"] == ".git"),
+        "json tree -a must not surface .git"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_stats_directory_counts_files_and_dirs_separately() {
+    let dir = setup_temp_dir("json-stats-dir");
+    let v = tk_json(&["stats", dir.to_str().unwrap(), "-d", "--format", "json"]);
+    let rows = v["by_directory"]
+        .as_array()
+        .expect("stats should include directory rows");
+    let root_row = rows
+        .iter()
+        .find(|row| row["directory"].as_str() == dir.to_str())
+        .unwrap_or_else(|| panic!("missing root directory row in {rows:#?}"));
+    assert_eq!(root_row["files"], 3);
+    assert_eq!(root_row["dirs"], 1);
+    cleanup(&dir);
+}
+
+#[test]
 fn test_json_search_omits_ansi() {
     let dir = setup_temp_dir("json-search");
     let v = tk_json(&["search", "hello", dir.to_str().unwrap(), "--format", "json"]);
@@ -347,6 +489,72 @@ fn test_json_search_omits_ansi() {
         );
         assert!(hit["line"].is_number());
     }
+    cleanup(&dir);
+}
+
+#[test]
+fn test_search_extension_filter_accepts_leading_dot() {
+    let dir = setup_temp_dir("search-ext-dot");
+    let (plain_stdout, plain_stderr, plain_success) =
+        tk(&["search", "hello", dir.to_str().unwrap(), "-e", "rs"]);
+    let (dotted_stdout, dotted_stderr, dotted_success) =
+        tk(&["search", "hello", dir.to_str().unwrap(), "-e", ".rs"]);
+    assert!(
+        plain_success,
+        "plain extension search failed: {plain_stderr}"
+    );
+    assert!(
+        dotted_success,
+        "dotted extension search failed: {dotted_stderr}"
+    );
+    assert_eq!(plain_stdout, dotted_stdout);
+    assert!(
+        dotted_stdout.contains("test.rs"),
+        "dotted extension search should find test.rs, got: {dotted_stdout}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_search_extension_filter_accepts_leading_dot() {
+    let dir = setup_temp_dir("json-search-ext-dot");
+    let plain = tk_json(&[
+        "search",
+        "hello",
+        dir.to_str().unwrap(),
+        "-e",
+        "rs",
+        "--format",
+        "json",
+    ]);
+    let dotted = tk_json(&[
+        "search",
+        "hello",
+        dir.to_str().unwrap(),
+        "-e",
+        ".rs",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(plain, dotted);
+    assert!(
+        !dotted.as_array().unwrap().is_empty(),
+        "dotted extension JSON search should find matches"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_info_reports_symlink_path_type() {
+    let dir = setup_temp_dir("info-symlink");
+    let target = dir.join("hello.txt");
+    let link = dir.join("hello-link.txt");
+    if symlink_file(&target, &link).is_err() {
+        cleanup(&dir);
+        return;
+    }
+    let v = tk_json(&["info", "-f", link.to_str().unwrap(), "--format", "json"]);
+    assert_eq!(v["type"], "symlink");
     cleanup(&dir);
 }
 
@@ -420,4 +628,17 @@ fn test_mcp_tools_call_returns_json_content() {
     let inner: serde_json::Value = serde_json::from_str(text).unwrap();
     assert_eq!(inner[0]["lines"], 3);
     cleanup(&dir);
+}
+
+#[test]
+fn test_mcp_checksum_invalid_algorithm_reports_tool_error() {
+    let req = r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"checksum","arguments":{"files":["Cargo.toml"],"algorithm":"sha1"}}}"#;
+    let resps = tk_mcp(&[req]);
+    let result = &resps[0]["result"];
+    assert_eq!(result["isError"], true);
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("Unsupported algorithm"),
+        "tool error should explain unsupported algorithm, got: {text}"
+    );
 }
