@@ -1,8 +1,21 @@
 use crate::commands::ansi;
 use crate::{CatArgs, HeadArgs, PreviewArgs};
+use serde::Serialize;
 use std::collections::VecDeque;
 use std::fs;
 use std::path::Path;
+
+#[derive(Serialize)]
+struct FileContent {
+    path: String,
+    content: String,
+}
+
+#[derive(Serialize)]
+struct FileLines {
+    path: String,
+    lines: Vec<String>,
+}
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, ThemeSet};
 use syntect::parsing::SyntaxSet;
@@ -34,6 +47,18 @@ fn style_ansi(style: &syntect::highlighting::Style) -> String {
 }
 
 pub fn run_cat(args: &CatArgs) -> Result<(), String> {
+    if super::json_enabled() {
+        let mut out = Vec::with_capacity(args.files.len());
+        for path in &args.files {
+            let content = fs::read_to_string(path).map_err(|e| format!("{}: {}", path, e))?;
+            out.push(FileContent {
+                path: path.clone(),
+                content,
+            });
+        }
+        return super::emit_json(&out);
+    }
+
     let multiple = args.files.len() > 1;
     for path in &args.files {
         let content = fs::read_to_string(path).map_err(|e| format!("{}: {}", path, e))?;
@@ -58,6 +83,24 @@ pub fn run_cat(args: &CatArgs) -> Result<(), String> {
 }
 
 pub fn run_preview(args: &PreviewArgs) -> Result<(), String> {
+    // Syntax highlighting is ANSI styling; JSON consumers get plain content.
+    if super::json_enabled() {
+        let mut out = Vec::with_capacity(args.files.len());
+        for path in &args.files {
+            let p = Path::new(path);
+            let content = if super::is_binary(p) {
+                "[binary file]".to_string()
+            } else {
+                fs::read_to_string(path).map_err(|e| format!("{}: {}", path, e))?
+            };
+            out.push(FileContent {
+                path: path.clone(),
+                content,
+            });
+        }
+        return super::emit_json(&out);
+    }
+
     let ss = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
     let theme = &ts.themes["base16-ocean.dark"];
@@ -128,6 +171,23 @@ pub fn run_preview(args: &PreviewArgs) -> Result<(), String> {
 }
 
 pub fn run_head(args: &HeadArgs) -> Result<(), String> {
+    if super::json_enabled() {
+        let mut out = Vec::with_capacity(args.files.len());
+        for path in &args.files {
+            let content = fs::read_to_string(path).map_err(|e| format!("{}: {}", path, e))?;
+            let lines = content
+                .lines()
+                .take(args.lines)
+                .map(|l| l.to_string())
+                .collect();
+            out.push(FileLines {
+                path: path.clone(),
+                lines,
+            });
+        }
+        return super::emit_json(&out);
+    }
+
     let multiple = args.files.len() > 1;
     for path in &args.files {
         let content = fs::read_to_string(path).map_err(|e| format!("{}: {}", path, e))?;
@@ -142,6 +202,29 @@ pub fn run_head(args: &HeadArgs) -> Result<(), String> {
 }
 
 pub fn run_tail(args: &HeadArgs) -> Result<(), String> {
+    if super::json_enabled() {
+        let mut out = Vec::with_capacity(args.files.len());
+        for path in &args.files {
+            let content = fs::read_to_string(path).map_err(|e| format!("{}: {}", path, e))?;
+            let mut lines: Vec<String> = Vec::new();
+            if args.lines > 0 {
+                let mut buf: VecDeque<&str> = VecDeque::with_capacity(args.lines);
+                for line in content.lines() {
+                    if buf.len() == args.lines {
+                        buf.pop_front();
+                    }
+                    buf.push_back(line);
+                }
+                lines = buf.iter().map(|l| l.to_string()).collect();
+            }
+            out.push(FileLines {
+                path: path.clone(),
+                lines,
+            });
+        }
+        return super::emit_json(&out);
+    }
+
     let multiple = args.files.len() > 1;
     for path in &args.files {
         let content = fs::read_to_string(path).map_err(|e| format!("{}: {}", path, e))?;

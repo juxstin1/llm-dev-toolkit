@@ -1,6 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 mod commands;
+mod mcp;
 
 use clap::{Parser, Subcommand};
 
@@ -15,6 +16,14 @@ struct Cli {
         help = "Color output: auto, always, never"
     )]
     color: commands::ColorChoice,
+    #[arg(
+        long,
+        global = true,
+        default_value = "text",
+        value_enum,
+        help = "Output format: text (human) or json (machine-readable)"
+    )]
+    format: commands::OutputFormat,
     #[command(subcommand)]
     command: Commands,
 }
@@ -78,6 +87,8 @@ enum Commands {
     Info(InfoArgs),
     #[command(about = "Install or print Spec0 agent slash commands")]
     Spec0(commands::spec0::Spec0Args),
+    #[command(about = "Run as an MCP server over stdio (read-only tools for LLM agents)")]
+    Mcp,
 }
 
 #[derive(clap::Args)]
@@ -268,6 +279,11 @@ struct ClipArgs {
     out: bool,
     #[arg(short = 'i', long, help = "Read stdin into clipboard")]
     r#in: bool,
+    #[arg(
+        long,
+        help = "Allow persistent file fallback when the system clipboard is unavailable"
+    )]
+    allow_file_fallback: bool,
     value: Option<String>,
 }
 
@@ -386,6 +402,7 @@ fn main() {
 
     let cli = Cli::parse();
 
+    commands::init_format(cli.format);
     commands::init_color(cli.color);
 
     let result = match &cli.command {
@@ -416,10 +433,18 @@ fn main() {
         Commands::Sort(a) => commands::sort::run(a),
         Commands::Info(a) => commands::info::run(a),
         Commands::Spec0(a) => commands::spec0::run(a),
+        Commands::Mcp => mcp::run(),
     };
 
     if let Err(e) = result {
-        eprintln!("Error: {}", e);
+        // Keep the error contract uniform with --format json: a structured
+        // consumer gets a parseable `{"error": ...}` on stderr (stdout stays
+        // empty), distinguished from success by the non-zero exit code.
+        if commands::json_enabled() {
+            eprintln!("{}", serde_json::json!({ "error": e }));
+        } else {
+            eprintln!("Error: {}", e);
+        }
         std::process::exit(1);
     }
 }

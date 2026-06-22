@@ -4,6 +4,7 @@
   "private": true,
   "description": "Remotion terminal demo for the tk CLI",
   "scripts": {
+    "check": "tsc --noEmit",
     "studio": "remotion studio",
     "render": "remotion render src/index.ts TkDemo out/tk-demo.mp4 --codec=h264",
     "still": "remotion still src/index.ts TkDemo out/frame.png"

@@ -2,11 +2,24 @@ use std::collections::BTreeMap;
 use std::io::Read;
 
 use rayon::prelude::*;
+use serde::Serialize;
 use sha2::Sha256;
 
 use super::format_size;
 use super::{hash_file, walk_entries, with_rayon, WalkConfig};
 use crate::DupsArgs;
+
+#[derive(Serialize)]
+struct DupFile {
+    path: String,
+    size: u64,
+}
+
+#[derive(Serialize)]
+struct DupGroup {
+    hash: String,
+    files: Vec<DupFile>,
+}
 
 fn parse_size(s: &str) -> Option<u64> {
     let s = s.trim().to_lowercase();
@@ -158,7 +171,10 @@ mod tests {
 
 pub fn run(args: &DupsArgs) -> Result<(), String> {
     let root = args.path.as_deref().unwrap_or(".");
-    let min_bytes = args.min_size.as_deref().and_then(parse_size).unwrap_or(1);
+    let min_bytes = match args.min_size.as_deref() {
+        Some(size) => parse_size(size).ok_or_else(|| format!("Invalid minimum size: {size}"))?,
+        None => 1,
+    };
 
     let mut groups: BTreeMap<String, Vec<(String, u64)>> = BTreeMap::new();
 
@@ -197,6 +213,26 @@ pub fn run(args: &DupsArgs) -> Result<(), String> {
 
     for (hash, name, size) in results {
         groups.entry(hash).or_default().push((name, size));
+    }
+
+    if super::json_enabled() {
+        // Emit duplicate groups; deletion is an interactive action and is
+        // never performed in JSON mode.
+        let out: Vec<DupGroup> = groups
+            .iter()
+            .filter(|(_, files)| files.len() >= 2)
+            .map(|(hash, files)| DupGroup {
+                hash: hash.clone(),
+                files: files
+                    .iter()
+                    .map(|(path, size)| DupFile {
+                        path: path.clone(),
+                        size: *size,
+                    })
+                    .collect(),
+            })
+            .collect();
+        return super::emit_json(&out);
     }
 
     let mut found = false;

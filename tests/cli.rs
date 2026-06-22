@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn tk_binary() -> PathBuf {
@@ -40,6 +40,16 @@ fn setup_temp_dir(name: &str) -> PathBuf {
 
 fn cleanup(dir: &PathBuf) {
     let _ = std::fs::remove_dir_all(dir);
+}
+
+#[cfg(unix)]
+fn symlink_file(target: &Path, link: &Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(target, link)
+}
+
+#[cfg(windows)]
+fn symlink_file(target: &Path, link: &Path) -> std::io::Result<()> {
+    std::os::windows::fs::symlink_file(target, link)
 }
 
 #[test]
@@ -143,6 +153,16 @@ fn test_tk_info() {
     let (stdout, _, success) = tk(&["info", "-f", "tests/cli.rs"]);
     assert!(success, "info should succeed");
     assert!(stdout.contains("cli.rs"), "should show filename");
+}
+
+#[test]
+fn test_tk_clip_help_documents_file_fallback_opt_in() {
+    let (stdout, _, success) = tk(&["clip", "--help"]);
+    assert!(success, "clip --help should succeed");
+    assert!(
+        stdout.contains("--allow-file-fallback"),
+        "help should document file fallback opt-in, got: {stdout}"
+    );
 }
 
 #[test]
@@ -287,6 +307,100 @@ fn test_tk_tree_ignore_crate() {
 }
 
 #[test]
+fn test_tk_tree_all_still_excludes_git_dir() {
+    let dir = setup_temp_dir("tree-git");
+    std::fs::create_dir(dir.join(".git")).unwrap();
+    std::fs::write(dir.join(".git").join("config"), b"[core]\n").unwrap();
+    let (stdout, _, success) = tk(&[
+        "tree",
+        dir.to_str().unwrap(),
+        "-a",
+        "-L",
+        "1",
+        "--color",
+        "never",
+    ]);
+    assert!(success, "tree -a should succeed");
+    assert!(
+        !stdout.contains(".git"),
+        "tree -a must not surface .git internals, got: {stdout}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_ltd_hides_hidden_entries() {
+    let dir = setup_temp_dir("ltd-hidden");
+    std::fs::write(dir.join(".hidden"), b"secret\n").unwrap();
+    std::fs::create_dir(dir.join(".git")).unwrap();
+    std::fs::write(dir.join(".git").join("config"), b"[core]\n").unwrap();
+    let (stdout, _, success) = tk(&["ltd", "-L", "1", dir.to_str().unwrap(), "--color", "never"]);
+    assert!(success, "ltd should succeed");
+    assert!(
+        stdout.contains("hello.txt"),
+        "ltd should show visible files"
+    );
+    assert!(
+        !stdout.contains(".hidden") && !stdout.contains(".git"),
+        "ltd must hide dot entries by default, got: {stdout}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_checksum_invalid_algorithm_fails() {
+    let dir = setup_temp_dir("checksum-invalid");
+    let file = dir.join("hello.txt");
+    let (stdout, stderr, success) = tk(&["checksum", file.to_str().unwrap(), "-a", "sha1"]);
+    assert!(!success, "unsupported checksum algorithm should fail");
+    assert!(
+        stdout.trim().is_empty(),
+        "stdout should stay empty on error"
+    );
+    assert!(
+        stderr.contains("Unsupported algorithm"),
+        "stderr should explain unsupported algorithm, got: {stderr}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_ff_rejects_invalid_type_filter() {
+    let dir = setup_temp_dir("ff-invalid-type");
+    let (_stdout, stderr, success) = tk(&["ff", "hello", dir.to_str().unwrap(), "-t", "x"]);
+    assert!(!success, "invalid ff type filter should fail");
+    assert!(
+        stderr.contains("Invalid type filter"),
+        "stderr should explain invalid type filter, got: {stderr}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_sort_rejects_invalid_sort_field() {
+    let dir = setup_temp_dir("sort-invalid-field");
+    let (_stdout, stderr, success) = tk(&["sort", dir.to_str().unwrap(), "--by", "nope"]);
+    assert!(!success, "invalid sort field should fail");
+    assert!(
+        stderr.contains("Invalid sort field"),
+        "stderr should explain invalid sort field, got: {stderr}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_dups_rejects_invalid_min_size() {
+    let dir = setup_temp_dir("dups-invalid-size");
+    let (_stdout, stderr, success) = tk(&["dups", dir.to_str().unwrap(), "-m", "nonsense"]);
+    assert!(!success, "invalid duplicate-size filter should fail");
+    assert!(
+        stderr.contains("Invalid minimum size"),
+        "stderr should explain invalid size filter, got: {stderr}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
 fn test_tk_spec0_list() {
     let (stdout, _, success) = tk(&["spec0", "list"]);
     assert!(success, "spec0 list should succeed");
@@ -368,4 +482,257 @@ fn test_tk_spec0_project_install_codex() {
         "should install Codex skill"
     );
     cleanup(&dir);
+}
+
+// --- --format json -----------------------------------------------------------
+
+/// Run tk and parse stdout as JSON, asserting success.
+fn tk_json(args: &[&str]) -> serde_json::Value {
+    let (stdout, stderr, success) = tk(args);
+    assert!(success, "command should succeed; stderr: {stderr}");
+    serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("output was not valid JSON: {e}\n{stdout}"))
+}
+
+#[test]
+fn test_json_ls_is_array_of_typed_entries() {
+    let dir = setup_temp_dir("json-ls");
+    let v = tk_json(&["ls", dir.to_str().unwrap(), "--format", "json"]);
+    let arr = v.as_array().expect("ls json should be an array");
+    let names: Vec<&str> = arr.iter().filter_map(|e| e["name"].as_str()).collect();
+    assert!(names.contains(&"hello.txt"));
+    let subdir = arr.iter().find(|e| e["name"] == "subdir").unwrap();
+    assert_eq!(subdir["type"], "dir");
+    // Sizes are raw numbers, not formatted strings.
+    assert!(arr[0]["size"].is_number(), "size must be numeric in json");
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_count_carries_all_metrics() {
+    let dir = setup_temp_dir("json-count");
+    let file = dir.join("hello.txt");
+    let v = tk_json(&["count", file.to_str().unwrap(), "--format", "json"]);
+    let rec = &v.as_array().unwrap()[0];
+    assert_eq!(rec["lines"], 3);
+    assert!(rec["words"].is_number());
+    assert!(rec["bytes"].is_number());
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_tree_is_nested() {
+    let dir = setup_temp_dir("json-tree");
+    let v = tk_json(&["tree", dir.to_str().unwrap(), "--format", "json"]);
+    assert_eq!(v["type"], "dir");
+    let children = v["children"].as_array().expect("tree should have children");
+    let subdir = children.iter().find(|c| c["name"] == "subdir").unwrap();
+    assert_eq!(subdir["type"], "dir");
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_tree_all_still_excludes_git_dir() {
+    let dir = setup_temp_dir("json-tree-git");
+    std::fs::create_dir(dir.join(".git")).unwrap();
+    std::fs::write(dir.join(".git").join("config"), b"[core]\n").unwrap();
+    let v = tk_json(&[
+        "tree",
+        dir.to_str().unwrap(),
+        "-a",
+        "-L",
+        "1",
+        "--format",
+        "json",
+    ]);
+    let children = v["children"].as_array().expect("tree should have children");
+    assert!(
+        !children.iter().any(|child| child["name"] == ".git"),
+        "json tree -a must not surface .git"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_stats_directory_counts_files_and_dirs_separately() {
+    let dir = setup_temp_dir("json-stats-dir");
+    let v = tk_json(&["stats", dir.to_str().unwrap(), "-d", "--format", "json"]);
+    let rows = v["by_directory"]
+        .as_array()
+        .expect("stats should include directory rows");
+    let root_row = rows
+        .iter()
+        .find(|row| row["directory"].as_str() == dir.to_str())
+        .unwrap_or_else(|| panic!("missing root directory row in {rows:#?}"));
+    assert_eq!(root_row["files"], 3);
+    assert_eq!(root_row["dirs"], 1);
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_search_omits_ansi() {
+    let dir = setup_temp_dir("json-search");
+    let v = tk_json(&["search", "hello", dir.to_str().unwrap(), "--format", "json"]);
+    let arr = v.as_array().unwrap();
+    assert!(!arr.is_empty(), "should find matches");
+    for hit in arr {
+        let text = hit["text"].as_str().unwrap();
+        assert!(
+            !text.contains('\u{1b}'),
+            "json text must not contain ANSI escapes"
+        );
+        assert!(hit["line"].is_number());
+    }
+    cleanup(&dir);
+}
+
+#[test]
+fn test_search_extension_filter_accepts_leading_dot() {
+    let dir = setup_temp_dir("search-ext-dot");
+    let (plain_stdout, plain_stderr, plain_success) =
+        tk(&["search", "hello", dir.to_str().unwrap(), "-e", "rs"]);
+    let (dotted_stdout, dotted_stderr, dotted_success) =
+        tk(&["search", "hello", dir.to_str().unwrap(), "-e", ".rs"]);
+    assert!(
+        plain_success,
+        "plain extension search failed: {plain_stderr}"
+    );
+    assert!(
+        dotted_success,
+        "dotted extension search failed: {dotted_stderr}"
+    );
+    assert_eq!(plain_stdout, dotted_stdout);
+    assert!(
+        dotted_stdout.contains("test.rs"),
+        "dotted extension search should find test.rs, got: {dotted_stdout}"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_search_extension_filter_accepts_leading_dot() {
+    let dir = setup_temp_dir("json-search-ext-dot");
+    let plain = tk_json(&[
+        "search",
+        "hello",
+        dir.to_str().unwrap(),
+        "-e",
+        "rs",
+        "--format",
+        "json",
+    ]);
+    let dotted = tk_json(&[
+        "search",
+        "hello",
+        dir.to_str().unwrap(),
+        "-e",
+        ".rs",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(plain, dotted);
+    assert!(
+        !dotted.as_array().unwrap().is_empty(),
+        "dotted extension JSON search should find matches"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_info_reports_symlink_path_type() {
+    let dir = setup_temp_dir("info-symlink");
+    let target = dir.join("hello.txt");
+    let link = dir.join("hello-link.txt");
+    if symlink_file(&target, &link).is_err() {
+        cleanup(&dir);
+        return;
+    }
+    let v = tk_json(&["info", "-f", link.to_str().unwrap(), "--format", "json"]);
+    assert_eq!(v["type"], "symlink");
+    cleanup(&dir);
+}
+
+// --- mcp server --------------------------------------------------------------
+
+/// Feed newline-delimited JSON-RPC to `tk mcp` over stdin, return decoded
+/// responses (one per non-empty output line).
+fn tk_mcp(requests: &[&str]) -> Vec<serde_json::Value> {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let mut child = Command::new(tk_binary())
+        .arg("mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn tk mcp");
+    let input = requests.join("\n");
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| serde_json::from_str(l).expect("each mcp response is a JSON line"))
+        .collect()
+}
+
+#[test]
+fn test_mcp_initialize_and_list_tools() {
+    let resps = tk_mcp(&[
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+    ]);
+    // The notification produces no response, so two responses for three inputs.
+    assert_eq!(resps.len(), 2, "notification must not get a reply");
+    assert_eq!(resps[0]["result"]["serverInfo"]["name"], "tk");
+    let names: Vec<&str> = resps[1]["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+    assert!(names.contains(&"search"));
+    assert!(
+        !names.contains(&"extract"),
+        "side-effecting tools are not exposed"
+    );
+}
+
+#[test]
+fn test_mcp_tools_call_returns_json_content() {
+    let dir = setup_temp_dir("mcp-call");
+    let req = format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"count","arguments":{{"files":["{}"]}}}}}}"#,
+        dir.join("hello.txt")
+            .to_str()
+            .unwrap()
+            .replace('\\', "\\\\")
+    );
+    let resps = tk_mcp(&[&req]);
+    let result = &resps[0]["result"];
+    assert_eq!(result["isError"], false);
+    let text = result["content"][0]["text"].as_str().unwrap();
+    // The embedded text is itself the command's JSON output.
+    let inner: serde_json::Value = serde_json::from_str(text).unwrap();
+    assert_eq!(inner[0]["lines"], 3);
+    cleanup(&dir);
+}
+
+#[test]
+fn test_mcp_checksum_invalid_algorithm_reports_tool_error() {
+    let req = r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"checksum","arguments":{"files":["Cargo.toml"],"algorithm":"sha1"}}}"#;
+    let resps = tk_mcp(&[req]);
+    let result = &resps[0]["result"];
+    assert_eq!(result["isError"], true);
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("Unsupported algorithm"),
+        "tool error should explain unsupported algorithm, got: {text}"
+    );
 }

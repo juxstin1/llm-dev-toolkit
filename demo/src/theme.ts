@@ -27,6 +27,8 @@ export const ui = {
 
 export const font = {
   family: "Hack",
-  size: 26, // px (composition is rendered at 2x via scale)
-  lineHeight: 38,
+  // Sized so the widest demo line (the `tk search` matches, ~87 chars) fits
+  // the ~1268px terminal body without clipping at the right edge.
+  size: 22, // px
+  lineHeight: 33,
 };

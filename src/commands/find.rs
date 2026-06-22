@@ -25,6 +25,16 @@ fn ext_matches(path: &Path, target_ext: &str, ignore_case: bool) -> bool {
 pub fn run_name(args: &crate::FfArgs) -> Result<(), String> {
     let root = args.path.as_deref().unwrap_or(".");
     let root_path = Path::new(root);
+    if let Some(ref tf) = args.type_filter {
+        match tf.as_str() {
+            "f" | "d" => {}
+            other => {
+                return Err(format!(
+                    "Invalid type filter: {other} (expected 'f' or 'd')"
+                ))
+            }
+        }
+    }
 
     let config = WalkConfig {
         root,
@@ -32,6 +42,7 @@ pub fn run_name(args: &crate::FfArgs) -> Result<(), String> {
         max_depth: None,
     };
 
+    let mut matches: Vec<String> = Vec::new();
     for entry in walk_entries(&config) {
         let ft = match entry.file_type() {
             Some(ft) => ft,
@@ -42,6 +53,7 @@ pub fn run_name(args: &crate::FfArgs) -> Result<(), String> {
             match tf.as_str() {
                 "f" if !ft.is_file() => continue,
                 "d" if !ft.is_dir() => continue,
+                "f" | "d" => {}
                 _ => {}
             }
         }
@@ -57,9 +69,20 @@ pub fn run_name(args: &crate::FfArgs) -> Result<(), String> {
             continue;
         }
 
-        println!("{}", rel_to(entry.path(), root_path).display());
+        matches.push(rel_to(entry.path(), root_path).display().to_string());
     }
 
+    emit_paths(matches)
+}
+
+/// Print one path per line, or a JSON array of paths under `--format json`.
+fn emit_paths(matches: Vec<String>) -> Result<(), String> {
+    if super::json_enabled() {
+        return super::emit_json(&matches);
+    }
+    for m in &matches {
+        println!("{}", m);
+    }
     Ok(())
 }
 
@@ -73,6 +96,7 @@ pub fn run_ext(args: &crate::FfExtArgs) -> Result<(), String> {
         ..Default::default()
     };
 
+    let mut matches: Vec<String> = Vec::new();
     for entry in walk_entries(&config) {
         let ft = match entry.file_type() {
             Some(ft) => ft,
@@ -88,10 +112,10 @@ pub fn run_ext(args: &crate::FfExtArgs) -> Result<(), String> {
             _ => continue,
         }
 
-        println!("{}", rel_to(entry.path(), root_path).display());
+        matches.push(rel_to(entry.path(), root_path).display().to_string());
     }
 
-    Ok(())
+    emit_paths(matches)
 }
 
 #[cfg(test)]
@@ -187,6 +211,7 @@ pub fn run_name_pattern(args: &crate::FfNameArgs) -> Result<(), String> {
         ..Default::default()
     };
 
+    let mut matches: Vec<String> = Vec::new();
     for entry in walk_entries(&config) {
         let name = entry.file_name().to_string_lossy();
 
@@ -199,8 +224,8 @@ pub fn run_name_pattern(args: &crate::FfNameArgs) -> Result<(), String> {
             continue;
         }
 
-        println!("{}", rel_to(entry.path(), root_path).display());
+        matches.push(rel_to(entry.path(), root_path).display().to_string());
     }
 
-    Ok(())
+    emit_paths(matches)
 }

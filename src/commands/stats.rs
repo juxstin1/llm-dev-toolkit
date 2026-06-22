@@ -1,8 +1,36 @@
 use std::collections::BTreeMap;
 
+use serde::Serialize;
+
 use super::format_size;
 use super::{walk_entries, WalkConfig};
 use crate::StatsArgs;
+
+#[derive(Serialize)]
+struct ExtStat {
+    extension: String,
+    files: u64,
+    bytes: u64,
+}
+
+#[derive(Serialize)]
+struct DirStat {
+    directory: String,
+    files: u64,
+    dirs: u64,
+    bytes: u64,
+}
+
+#[derive(Serialize)]
+struct Stats {
+    files: u64,
+    dirs: u64,
+    bytes: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    by_extension: Option<Vec<ExtStat>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    by_directory: Option<Vec<DirStat>>,
+}
 
 pub fn run(args: &StatsArgs) -> Result<(), String> {
     let root = args.path.as_deref().unwrap_or(".");
@@ -33,8 +61,7 @@ pub fn run(args: &StatsArgs) -> Result<(), String> {
                     .unwrap_or_default();
                 by_dir
                     .entry(parent)
-                    .and_modify(|(f, d, _)| {
-                        *f += 1;
+                    .and_modify(|(_f, d, _)| {
                         *d += 1;
                     })
                     .or_insert((0, 1, 0));
@@ -72,6 +99,37 @@ pub fn run(args: &StatsArgs) -> Result<(), String> {
                     .or_insert((1, 0, size));
             }
         }
+    }
+
+    if super::json_enabled() {
+        let by_extension = args.by_type.then(|| {
+            by_ext
+                .iter()
+                .map(|(ext, (count, size))| ExtStat {
+                    extension: ext.clone(),
+                    files: *count,
+                    bytes: *size,
+                })
+                .collect()
+        });
+        let by_directory = args.directory.then(|| {
+            by_dir
+                .iter()
+                .map(|(dir, (files, dirs, size))| DirStat {
+                    directory: dir.clone(),
+                    files: *files,
+                    dirs: *dirs,
+                    bytes: *size,
+                })
+                .collect()
+        });
+        return super::emit_json(&Stats {
+            files: total_files,
+            dirs: total_dirs,
+            bytes: total_bytes,
+            by_extension,
+            by_directory,
+        });
     }
 
     println!("  Files:    {:>10}", total_files);
