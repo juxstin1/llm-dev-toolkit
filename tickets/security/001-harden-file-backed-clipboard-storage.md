@@ -12,7 +12,7 @@ files:
   - src/commands/clip.rs:59-80
 depends_on: []
 tags: [local-data, clipboard]
-status: open
+status: done
 ---
 
 ## What
@@ -44,3 +44,9 @@ file-backed writes.
 
 Is the file fallback a must-have behavior for headless environments, or can
 write failure be surfaced instead?
+
+## Implementation
+
+Implemented in build slice 8. Fallback persistence remains available for
+headless environments, but writes require explicit `--allow-file-fallback`
+opt-in. Proof: `docs/proofs/2026-06-22-sec-001-clipboard-fallback.md`.

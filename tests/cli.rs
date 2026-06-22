@@ -156,6 +156,16 @@ fn test_tk_info() {
 }
 
 #[test]
+fn test_tk_clip_help_documents_file_fallback_opt_in() {
+    let (stdout, _, success) = tk(&["clip", "--help"]);
+    assert!(success, "clip --help should succeed");
+    assert!(
+        stdout.contains("--allow-file-fallback"),
+        "help should document file fallback opt-in, got: {stdout}"
+    );
+}
+
+#[test]
 fn test_tk_sort() {
     let dir = setup_temp_dir("sort");
     let (stdout, _, success) = tk(&["sort", dir.to_str().unwrap()]);

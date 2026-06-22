@@ -16,7 +16,9 @@ decision-heavy work until after the low-risk correctness fixes.
 
 Slices 1-7 are implemented and verified in
 [`docs/proofs/2026-06-22-build-slices-1-7.md`](../docs/proofs/2026-06-22-build-slices-1-7.md).
-Slices 8-10 remain open.
+Slice 8 is implemented and verified in
+[`docs/proofs/2026-06-22-sec-001-clipboard-fallback.md`](../docs/proofs/2026-06-22-sec-001-clipboard-fallback.md).
+Slices 9-10 remain open.
 
 ## Ordered Slices
 

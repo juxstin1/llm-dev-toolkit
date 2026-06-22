@@ -71,7 +71,7 @@ Two global flags apply to every command:
 | `checksum` | | File checksums — sha256/224/384/512, md5 (`-a`, `--threads`) |
 | `extract` | | Extract `.zip`, `.tar`, `.tar.gz`/`.tgz`, `.gz` (`-o <dir>`) |
 | `json` | | `format` / `validate` / `keys` for JSON (file or stdin) |
-| `clip` | | Read/write the system clipboard (`-i` in, `-o` out) |
+| `clip` | | Read/write the system clipboard (`-i` in, `-o` out; `--allow-file-fallback` permits persistent fallback storage when the system clipboard is unavailable) |
 | `info` | | File details (`-f <path>`) or a system overview |
 | `mcp` | | Run as an MCP server over stdio (read-only tools for LLM agents) |
 
