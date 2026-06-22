@@ -35,3 +35,8 @@ Anything not checked.
 
 - [2026-06-22-spec0-setup.md](2026-06-22-spec0-setup.md)
 - [2026-06-22-ticket-runover.md](2026-06-22-ticket-runover.md)
+- [2026-06-22-build-slices-1-7.md](2026-06-22-build-slices-1-7.md)
+- [2026-06-22-sec-001-clipboard-fallback.md](2026-06-22-sec-001-clipboard-fallback.md)
+- [2026-06-22-maint-001-demo-ci.md](2026-06-22-maint-001-demo-ci.md)
+- [2026-06-22-arch-002-mcp-tool-table.md](2026-06-22-arch-002-mcp-tool-table.md)
+- [2026-06-22-cli-ergonomics-spec.md](2026-06-22-cli-ergonomics-spec.md)

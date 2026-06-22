@@ -67,12 +67,16 @@ Each bug fix should include:
 
 ## Phase 2: Write Behavior Contracts
 
+Status: in progress. `SPEC-001` now covers CLI ergonomics and workflow
+shortcuts.
+
 Candidate specs:
 
-- `SPEC-001`: Git-aware traversal and hidden-file behavior.
-- `SPEC-002`: CLI text, JSON output, and exit-code contract.
-- `SPEC-003`: MCP tool schema and CLI parity contract.
-- `SPEC-004`: Archive extraction safety and overwrite contract.
+- `SPEC-001`: CLI ergonomics and workflow shortcuts.
+- `SPEC-002`: Git-aware traversal and hidden-file behavior.
+- `SPEC-003`: CLI text, JSON output, and exit-code contract.
+- `SPEC-004`: MCP tool schema and CLI parity contract.
+- `SPEC-005`: Archive extraction safety and overwrite contract.
 
 Acceptance:
 

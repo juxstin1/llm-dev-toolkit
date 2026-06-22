@@ -18,12 +18,13 @@ where the code lives, how the change rolls out, and how to prove it.
 | Spec | Status | Scope |
 | --- | --- | --- |
 | [SPEC-000: Planning System](SPEC-000-planning-system.md) | draft | Repo-local docs, maps, tickets, runbooks, and proof lanes. |
+| [SPEC-001: CLI Ergonomics And Workflow Shortcuts](SPEC-001-cli-ergonomics.md) | accepted | Additive shortcuts, help polish, natural file info, and future `show`/`scan` workflows. |
 
 ## Candidate Future Specs
 
 | Candidate | Why |
 | --- | --- |
-| CLI output contract | Pin text vs JSON behavior, exit-code expectations, color rules, and path formatting. |
+| CLI output contract | Pin text vs JSON behavior, exit-code expectations, color rules, and path formatting beyond the ergonomics scope. |
 | Git-aware traversal contract | Make `.git`, ignore handling, hidden-file behavior, and recursive traversal semantics consistent. |
 | MCP tool contract | Pin exposed tools, input schemas, error semantics, and parity with CLI JSON output. |
 | Archive extraction safety contract | Define supported archive formats, zip-slip/tar traversal protection, overwrite behavior, and entry counts. |
