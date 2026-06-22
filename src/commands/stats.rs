@@ -61,8 +61,7 @@ pub fn run(args: &StatsArgs) -> Result<(), String> {
                     .unwrap_or_default();
                 by_dir
                     .entry(parent)
-                    .and_modify(|(f, d, _)| {
-                        *f += 1;
+                    .and_modify(|(_f, d, _)| {
                         *d += 1;
                     })
                     .or_insert((0, 1, 0));

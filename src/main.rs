@@ -277,6 +277,11 @@ struct ClipArgs {
     out: bool,
     #[arg(short = 'i', long, help = "Read stdin into clipboard")]
     r#in: bool,
+    #[arg(
+        long,
+        help = "Allow persistent file fallback when the system clipboard is unavailable"
+    )]
+    allow_file_fallback: bool,
     value: Option<String>,
 }
 

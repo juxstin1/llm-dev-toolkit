@@ -171,7 +171,10 @@ mod tests {
 
 pub fn run(args: &DupsArgs) -> Result<(), String> {
     let root = args.path.as_deref().unwrap_or(".");
-    let min_bytes = args.min_size.as_deref().and_then(parse_size).unwrap_or(1);
+    let min_bytes = match args.min_size.as_deref() {
+        Some(size) => parse_size(size).ok_or_else(|| format!("Invalid minimum size: {size}"))?,
+        None => 1,
+    };
 
     let mut groups: BTreeMap<String, Vec<(String, u64)>> = BTreeMap::new();
 

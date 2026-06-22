@@ -30,6 +30,13 @@ fn checksum_file(path: &str, algorithm: &str) -> Result<String, String> {
     }
 }
 
+fn validate_algorithm(algorithm: &str) -> Result<(), String> {
+    match algorithm {
+        "sha256" | "sha224" | "sha384" | "sha512" | "md5" => Ok(()),
+        _ => Err(format!("Unsupported algorithm: {}", algorithm)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,6 +78,7 @@ pub fn run(args: &ChecksumArgs) -> Result<(), String> {
     } else {
         &args.algorithm
     };
+    validate_algorithm(algorithm)?;
 
     let results: Vec<(&String, Result<String, String>)> = with_rayon(args.threads, || {
         args.files

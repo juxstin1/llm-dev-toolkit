@@ -42,11 +42,15 @@ pub fn run_depth(args: &LtdArgsInner) -> Result<(), String> {
         return Err(format!("Not a directory: {}", root));
     }
     if super::json_enabled() {
-        let node = build_node(path, root.to_string(), true, args.depth, true, false);
+        let node = build_node(path, root.to_string(), true, args.depth, false, false);
         return super::emit_json(&node);
     }
     println!("{}", root);
-    print_tree(root, args.depth, true, false, "")
+    print_tree(root, args.depth, false, false, "")
+}
+
+fn is_git_path(path: &Path) -> bool {
+    path.components().any(|c| c.as_os_str() == ".git")
 }
 
 /// Build a nested tree of [`Node`]s. `levels` mirrors the text renderer's depth
@@ -75,6 +79,7 @@ fn build_node(
             .build()
             .filter_map(|e| e.ok())
             .filter(|e| e.path() != path)
+            .filter(|e| !is_git_path(e.path()))
             .filter(|e| show_all || !e.file_name().to_string_lossy().starts_with('.'))
             .filter(|e| !dirs_only || e.file_type().is_some_and(|ft| ft.is_dir()))
             .collect();
@@ -118,6 +123,7 @@ fn print_tree(
         .build()
         .filter_map(|e| e.ok())
         .filter(|e| e.path() != Path::new(root))
+        .filter(|e| !is_git_path(e.path()))
         .filter(|e| show_all || !e.file_name().to_string_lossy().starts_with('.'))
         .filter(|e| !dirs_only || e.file_type().is_some_and(|ft| ft.is_dir()))
         .collect();

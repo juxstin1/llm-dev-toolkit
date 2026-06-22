@@ -20,11 +20,14 @@ use serde_json::{json, Value};
 /// Protocol version advertised when a client doesn't request one.
 const DEFAULT_PROTOCOL_VERSION: &str = "2025-06-18";
 
+type ArgBuilder = fn(&Value) -> Result<Vec<String>, String>;
+
 /// One exposed tool: its name, human description, and JSON Schema for inputs.
 struct ToolDef {
     name: &'static str,
     description: &'static str,
     schema: Value,
+    build_args: ArgBuilder,
 }
 
 fn string_prop(desc: &str) -> Value {
@@ -45,6 +48,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "ls",
             description: "List directory contents (name, type, size, mtime).",
+            build_args: build_ls_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -57,6 +61,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "tree",
             description: "Directory tree as a nested structure. Respects .gitignore.",
+            build_args: build_tree_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -70,6 +75,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "find",
             description: "Find files/dirs by name substring. Respects .gitignore.",
+            build_args: build_find_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -85,6 +91,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "search",
             description: "Search file contents (grep-like). Returns {path,line,text} matches. Respects .gitignore and skips binaries.",
+            build_args: build_search_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -100,6 +107,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "stats",
             description: "File/dir/byte counts for a tree, optionally broken down by extension or directory.",
+            build_args: build_stats_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -113,6 +121,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "dups",
             description: "Find duplicate files by SHA-256 content hash (read-only; never deletes).",
+            build_args: build_dups_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -124,6 +133,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "largest",
             description: "Largest files (or directories) under a tree.",
+            build_args: build_largest_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -136,6 +146,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "recent",
             description: "Recently modified files within a time window.",
+            build_args: build_recent_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -149,6 +160,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "empty",
             description: "Find empty files and/or directories.",
+            build_args: build_empty_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -161,6 +173,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "count",
             description: "Count lines, words, chars, and bytes for the given files.",
+            build_args: build_count_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -172,6 +185,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "checksum",
             description: "Compute file checksums (sha256/224/384/512, md5).",
+            build_args: build_checksum_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -184,6 +198,7 @@ fn tool_defs() -> Vec<ToolDef> {
         ToolDef {
             name: "info",
             description: "File details (size, type, mime, timestamps) or a system overview when no file is given.",
+            build_args: build_info_args,
             schema: json!({
                 "type": "object",
                 "properties": {
@@ -204,183 +219,204 @@ fn arg_int(args: &Value, key: &str) -> Option<i64> {
     args.get(key).and_then(Value::as_i64)
 }
 
+fn required_str(args: &Value, key: &str) -> Result<String, String> {
+    arg_str(args, key).ok_or_else(|| format!("missing required '{}'", key))
+}
+
+fn required_str_array(args: &Value, key: &str) -> Result<Vec<String>, String> {
+    let values = args
+        .get(key)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("missing required '{}' array", key))?;
+    Ok(values
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::to_string)
+        .collect())
+}
+
+fn build_ls_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["ls".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if arg_bool(args, "all") {
+        v.push("-a".into());
+    }
+    if arg_bool(args, "long") {
+        v.push("-l".into());
+    }
+    Ok(v)
+}
+
+fn build_tree_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["tree".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if let Some(d) = arg_int(args, "depth") {
+        v.push("-L".into());
+        v.push(d.to_string());
+    }
+    if arg_bool(args, "all") {
+        v.push("-a".into());
+    }
+    if arg_bool(args, "dirs_only") {
+        v.push("-d".into());
+    }
+    Ok(v)
+}
+
+fn build_find_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["ff".to_string(), required_str(args, "pattern")?];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if arg_bool(args, "ignore_case") {
+        v.push("-i".into());
+    }
+    if let Some(e) = arg_str(args, "ext") {
+        v.push("-e".into());
+        v.push(e);
+    }
+    if let Some(t) = arg_str(args, "type") {
+        v.push("-t".into());
+        v.push(t);
+    }
+    Ok(v)
+}
+
+fn build_search_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["search".to_string(), required_str(args, "pattern")?];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if arg_bool(args, "ignore_case") {
+        v.push("-i".into());
+    }
+    if let Some(e) = arg_str(args, "ext") {
+        v.push("-e".into());
+        v.push(e);
+    }
+    if arg_bool(args, "files_with_matches") {
+        v.push("-l".into());
+    }
+    Ok(v)
+}
+
+fn build_stats_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["stats".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if arg_bool(args, "by_type") {
+        v.push("-t".into());
+    }
+    if arg_bool(args, "by_directory") {
+        v.push("-d".into());
+    }
+    if let Some(d) = arg_int(args, "max_depth") {
+        v.push("--max-depth".into());
+        v.push(d.to_string());
+    }
+    Ok(v)
+}
+
+fn build_dups_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["dups".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if let Some(m) = arg_str(args, "min_size") {
+        v.push("-m".into());
+        v.push(m);
+    }
+    Ok(v)
+}
+
+fn build_largest_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["largest".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if let Some(c) = arg_int(args, "count") {
+        v.push("-n".into());
+        v.push(c.to_string());
+    }
+    if arg_bool(args, "directories") {
+        v.push("-d".into());
+    }
+    Ok(v)
+}
+
+fn build_recent_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["recent".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if let Some(c) = arg_int(args, "count") {
+        v.push("-n".into());
+        v.push(c.to_string());
+    }
+    if let Some(d) = arg_int(args, "days") {
+        v.push("-d".into());
+        v.push(d.to_string());
+    }
+    if let Some(e) = arg_str(args, "ext") {
+        v.push("-e".into());
+        v.push(e);
+    }
+    Ok(v)
+}
+
+fn build_empty_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["empty".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if arg_bool(args, "files") {
+        v.push("-f".into());
+    }
+    if arg_bool(args, "dirs") {
+        v.push("-d".into());
+    }
+    Ok(v)
+}
+
+fn build_count_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["count".to_string()];
+    v.extend(required_str_array(args, "files")?);
+    Ok(v)
+}
+
+fn build_checksum_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["checksum".to_string()];
+    v.extend(required_str_array(args, "files")?);
+    if let Some(a) = arg_str(args, "algorithm") {
+        v.push("-a".into());
+        v.push(a);
+    }
+    Ok(v)
+}
+
+fn build_info_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["info".to_string()];
+    if let Some(f) = arg_str(args, "file") {
+        v.push("-f".into());
+        v.push(f);
+    }
+    Ok(v)
+}
+
+fn tool_def(name: &str) -> Option<ToolDef> {
+    tool_defs().into_iter().find(|tool| tool.name == name)
+}
+
 /// Translate a tool name + JSON arguments into `tk` CLI arguments. The global
 /// `--format json --color never` flags are appended by the caller.
 fn build_args(name: &str, args: &Value) -> Result<Vec<String>, String> {
-    let mut v: Vec<String> = Vec::new();
-
-    match name {
-        "ls" => {
-            v.push("ls".into());
-            if let Some(p) = arg_str(args, "path") {
-                v.push(p);
-            }
-            if arg_bool(args, "all") {
-                v.push("-a".into());
-            }
-            if arg_bool(args, "long") {
-                v.push("-l".into());
-            }
-        }
-        "tree" => {
-            v.push("tree".into());
-            if let Some(p) = arg_str(args, "path") {
-                v.push(p);
-            }
-            if let Some(d) = arg_int(args, "depth") {
-                v.push("-L".into());
-                v.push(d.to_string());
-            }
-            if arg_bool(args, "all") {
-                v.push("-a".into());
-            }
-            if arg_bool(args, "dirs_only") {
-                v.push("-d".into());
-            }
-        }
-        "find" => {
-            v.push("ff".into());
-            v.push(arg_str(args, "pattern").ok_or("missing required 'pattern'")?);
-            if let Some(p) = arg_str(args, "path") {
-                v.push(p);
-            }
-            if arg_bool(args, "ignore_case") {
-                v.push("-i".into());
-            }
-            if let Some(e) = arg_str(args, "ext") {
-                v.push("-e".into());
-                v.push(e);
-            }
-            if let Some(t) = arg_str(args, "type") {
-                v.push("-t".into());
-                v.push(t);
-            }
-        }
-        "search" => {
-            v.push("search".into());
-            v.push(arg_str(args, "pattern").ok_or("missing required 'pattern'")?);
-            if let Some(p) = arg_str(args, "path") {
-                v.push(p);
-            }
-            if arg_bool(args, "ignore_case") {
-                v.push("-i".into());
-            }
-            if let Some(e) = arg_str(args, "ext") {
-                v.push("-e".into());
-                v.push(e);
-            }
-            if arg_bool(args, "files_with_matches") {
-                v.push("-l".into());
-            }
-        }
-        "stats" => {
-            v.push("stats".into());
-            if let Some(p) = arg_str(args, "path") {
-                v.push(p);
-            }
-            if arg_bool(args, "by_type") {
-                v.push("-t".into());
-            }
-            if arg_bool(args, "by_directory") {
-                v.push("-d".into());
-            }
-            if let Some(d) = arg_int(args, "max_depth") {
-                v.push("--max-depth".into());
-                v.push(d.to_string());
-            }
-        }
-        "dups" => {
-            v.push("dups".into());
-            if let Some(p) = arg_str(args, "path") {
-                v.push(p);
-            }
-            if let Some(m) = arg_str(args, "min_size") {
-                v.push("-m".into());
-                v.push(m);
-            }
-        }
-        "largest" => {
-            v.push("largest".into());
-            if let Some(p) = arg_str(args, "path") {
-                v.push(p);
-            }
-            if let Some(c) = arg_int(args, "count") {
-                v.push("-n".into());
-                v.push(c.to_string());
-            }
-            if arg_bool(args, "directories") {
-                v.push("-d".into());
-            }
-        }
-        "recent" => {
-            v.push("recent".into());
-            if let Some(p) = arg_str(args, "path") {
-                v.push(p);
-            }
-            if let Some(c) = arg_int(args, "count") {
-                v.push("-n".into());
-                v.push(c.to_string());
-            }
-            if let Some(d) = arg_int(args, "days") {
-                v.push("-d".into());
-                v.push(d.to_string());
-            }
-            if let Some(e) = arg_str(args, "ext") {
-                v.push("-e".into());
-                v.push(e);
-            }
-        }
-        "empty" => {
-            v.push("empty".into());
-            if let Some(p) = arg_str(args, "path") {
-                v.push(p);
-            }
-            if arg_bool(args, "files") {
-                v.push("-f".into());
-            }
-            if arg_bool(args, "dirs") {
-                v.push("-d".into());
-            }
-        }
-        "count" => {
-            v.push("count".into());
-            let files = args
-                .get("files")
-                .and_then(Value::as_array)
-                .ok_or("missing required 'files' array")?;
-            for f in files {
-                if let Some(s) = f.as_str() {
-                    v.push(s.to_string());
-                }
-            }
-        }
-        "checksum" => {
-            v.push("checksum".into());
-            let files = args
-                .get("files")
-                .and_then(Value::as_array)
-                .ok_or("missing required 'files' array")?;
-            for f in files {
-                if let Some(s) = f.as_str() {
-                    v.push(s.to_string());
-                }
-            }
-            if let Some(a) = arg_str(args, "algorithm") {
-                v.push("-a".into());
-                v.push(a);
-            }
-        }
-        "info" => {
-            v.push("info".into());
-            if let Some(f) = arg_str(args, "file") {
-                v.push("-f".into());
-                v.push(f);
-            }
-        }
-        other => return Err(format!("unknown tool: {}", other)),
-    }
-
-    Ok(v)
+    let tool = tool_def(name).ok_or_else(|| format!("unknown tool: {}", name))?;
+    (tool.build_args)(args)
 }
 
 /// Run a tool by re-invoking this executable with `--format json`.
@@ -570,6 +606,98 @@ mod tests {
         let args = json!({ "pattern": "TODO", "path": "src", "ignore_case": true });
         let v = build_args("search", &args).unwrap();
         assert_eq!(v, vec!["search", "TODO", "src", "-i"]);
+    }
+
+    fn minimal_args_for_tool(name: &str) -> Value {
+        match name {
+            "find" | "search" => json!({ "pattern": "TODO" }),
+            "count" | "checksum" => json!({ "files": ["Cargo.toml"] }),
+            _ => json!({}),
+        }
+    }
+
+    #[test]
+    fn every_advertised_tool_has_a_builder() {
+        for tool in tool_defs() {
+            let args = minimal_args_for_tool(tool.name);
+            let cli_args = (tool.build_args)(&args)
+                .unwrap_or_else(|e| panic!("{} builder failed: {}", tool.name, e));
+            assert!(
+                !cli_args.is_empty(),
+                "{} builder should return a subcommand",
+                tool.name
+            );
+        }
+    }
+
+    #[test]
+    fn build_args_maps_all_tool_flags() {
+        let cases = [
+            (
+                "ls",
+                json!({ "path": "src", "all": true, "long": true }),
+                vec!["ls", "src", "-a", "-l"],
+            ),
+            (
+                "tree",
+                json!({ "path": "src", "depth": 2, "all": true, "dirs_only": true }),
+                vec!["tree", "src", "-L", "2", "-a", "-d"],
+            ),
+            (
+                "find",
+                json!({ "pattern": "TODO", "path": "src", "ignore_case": true, "ext": "rs", "type": "f" }),
+                vec!["ff", "TODO", "src", "-i", "-e", "rs", "-t", "f"],
+            ),
+            (
+                "search",
+                json!({ "pattern": "TODO", "path": "src", "ignore_case": true, "ext": "rs", "files_with_matches": true }),
+                vec!["search", "TODO", "src", "-i", "-e", "rs", "-l"],
+            ),
+            (
+                "stats",
+                json!({ "path": "src", "by_type": true, "by_directory": true, "max_depth": 2 }),
+                vec!["stats", "src", "-t", "-d", "--max-depth", "2"],
+            ),
+            (
+                "dups",
+                json!({ "path": "src", "min_size": "1kb" }),
+                vec!["dups", "src", "-m", "1kb"],
+            ),
+            (
+                "largest",
+                json!({ "path": "src", "count": 5, "directories": true }),
+                vec!["largest", "src", "-n", "5", "-d"],
+            ),
+            (
+                "recent",
+                json!({ "path": "src", "count": 5, "days": 2, "ext": "rs" }),
+                vec!["recent", "src", "-n", "5", "-d", "2", "-e", "rs"],
+            ),
+            (
+                "empty",
+                json!({ "path": "src", "files": true, "dirs": true }),
+                vec!["empty", "src", "-f", "-d"],
+            ),
+            (
+                "count",
+                json!({ "files": ["Cargo.toml", "README.md"] }),
+                vec!["count", "Cargo.toml", "README.md"],
+            ),
+            (
+                "checksum",
+                json!({ "files": ["Cargo.toml"], "algorithm": "md5" }),
+                vec!["checksum", "Cargo.toml", "-a", "md5"],
+            ),
+            (
+                "info",
+                json!({ "file": "Cargo.toml" }),
+                vec!["info", "-f", "Cargo.toml"],
+            ),
+        ];
+
+        for (name, args, expected) in cases {
+            assert_eq!(build_args(name, &args).unwrap(), expected, "{name}");
+        }
     }
 
     #[test]

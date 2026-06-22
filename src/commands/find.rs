@@ -25,6 +25,16 @@ fn ext_matches(path: &Path, target_ext: &str, ignore_case: bool) -> bool {
 pub fn run_name(args: &crate::FfArgs) -> Result<(), String> {
     let root = args.path.as_deref().unwrap_or(".");
     let root_path = Path::new(root);
+    if let Some(ref tf) = args.type_filter {
+        match tf.as_str() {
+            "f" | "d" => {}
+            other => {
+                return Err(format!(
+                    "Invalid type filter: {other} (expected 'f' or 'd')"
+                ))
+            }
+        }
+    }
 
     let config = WalkConfig {
         root,
@@ -43,6 +53,7 @@ pub fn run_name(args: &crate::FfArgs) -> Result<(), String> {
             match tf.as_str() {
                 "f" if !ft.is_file() => continue,
                 "d" if !ft.is_dir() => continue,
+                "f" | "d" => {}
                 _ => {}
             }
         }
