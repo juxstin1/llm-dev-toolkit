@@ -2,6 +2,8 @@
 
 A fast, single-binary command-line toolkit for the everyday file chores that come up while working in a codebase: listing, finding, searching, hashing, inspecting, and tidying. Think of it as a handful of `ls`/`find`/`grep`/`tree`/`wc`-style tools bundled into one `tk` binary, with sensible defaults for development work — most commands respect `.gitignore` and skip the `.git` directory automatically.
 
+`tk` also ships agent-facing workflow support: `--format json` for structured output, `tk mcp` for read-only MCP tool access, and Spec0 command installers for Claude Code, Codex, and OpenCode.
+
 [![CI](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
@@ -145,6 +147,8 @@ tk spec0 install --agent claude --scope user --force
 ```
 
 Existing files are skipped by default; pass `--force` when you intentionally want to overwrite them.
+
+After installing user-scoped commands, restart the target agent or open a new session if the slash command menu does not refresh immediately.
 
 ## For LLM agents
 
