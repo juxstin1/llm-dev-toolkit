@@ -85,6 +85,8 @@ enum Commands {
     Sort(SortArgs),
     #[command(about = "Show file info or system overview")]
     Info(InfoArgs),
+    #[command(about = "Install or print Spec0 agent slash commands")]
+    Spec0(commands::spec0::Spec0Args),
     #[command(about = "Run as an MCP server over stdio (read-only tools for LLM agents)")]
     Mcp,
 }
@@ -430,6 +432,7 @@ fn main() {
         Commands::Json(a) => commands::json::run(a),
         Commands::Sort(a) => commands::sort::run(a),
         Commands::Info(a) => commands::info::run(a),
+        Commands::Spec0(a) => commands::spec0::run(a),
         Commands::Mcp => mcp::run(),
     };
 
