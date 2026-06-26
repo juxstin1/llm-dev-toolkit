@@ -22,6 +22,7 @@ use clap::ValueEnum;
 use ignore::WalkBuilder;
 use sha2::Digest;
 use std::fs;
+use std::io::IsTerminal;
 use std::path::Path;
 use std::sync::OnceLock;
 use std::time::UNIX_EPOCH;
@@ -49,7 +50,7 @@ pub fn init_color(choice: ColorChoice) {
     let enabled = match choice {
         ColorChoice::Always => true,
         ColorChoice::Never => false,
-        ColorChoice::Auto => atty::is(atty::Stream::Stdout) && std::env::var("NO_COLOR").is_err(),
+        ColorChoice::Auto => std::io::stdout().is_terminal() && std::env::var("NO_COLOR").is_err(),
     };
     let _ = COLOR_ENABLED.set(enabled);
 }

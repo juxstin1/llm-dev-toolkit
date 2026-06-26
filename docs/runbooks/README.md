@@ -12,6 +12,11 @@ cargo test --all
 cargo build --release
 ```
 
+## Autonomous Spec0 Loop
+
+Use [autonomous-loop.md](autonomous-loop.md) for research, ticket drafting,
+implementation, verification, proof capture, subagent contracts, and handoff.
+
 ## Quick CLI Smoke Checks
 
 ```powershell
@@ -39,7 +44,8 @@ The demo is a Remotion project under `demo/`.
 
 ```powershell
 cd demo
-npm install
+npm ci
+npm run check
 npm run studio
 npm run render
 ```

@@ -17,17 +17,17 @@ where the code lives, how the change rolls out, and how to prove it.
 
 | Spec | Status | Scope |
 | --- | --- | --- |
-| [SPEC-000: Planning System](SPEC-000-planning-system.md) | draft | Repo-local docs, maps, tickets, runbooks, and proof lanes. |
+| [SPEC-000: Planning System](SPEC-000-planning-system.md) | implemented | Repo-local docs, maps, tickets, runbooks, proof lanes, and autonomous loop. |
 | [SPEC-001: CLI Ergonomics And Workflow Shortcuts](SPEC-001-cli-ergonomics.md) | accepted | Additive shortcuts, help polish, natural file info, and future `show`/`scan` workflows. |
 
 ## Candidate Future Specs
 
 | Candidate | Why |
 | --- | --- |
-| CLI output contract | Pin text vs JSON behavior, exit-code expectations, color rules, and path formatting beyond the ergonomics scope. |
-| Git-aware traversal contract | Make `.git`, ignore handling, hidden-file behavior, and recursive traversal semantics consistent. |
-| MCP tool contract | Pin exposed tools, input schemas, error semantics, and parity with CLI JSON output. |
-| Archive extraction safety contract | Define supported archive formats, zip-slip/tar traversal protection, overwrite behavior, and entry counts. |
+| `SPEC-002`: Git-aware traversal contract | Make `.git`, ignore handling, hidden-file behavior, and recursive traversal semantics consistent. |
+| `SPEC-003`: CLI output and exit-code contract | Pin text vs JSON behavior, exit-code expectations, color rules, and path formatting beyond the ergonomics scope. |
+| `SPEC-004`: MCP tool contract | Pin exposed tools, input schemas, error semantics, and parity with CLI JSON output. |
+| `SPEC-005`: Archive extraction safety contract | Define supported archive formats, zip-slip/tar traversal protection, overwrite behavior, and entry counts. |
 
 ## Spec Rules
 

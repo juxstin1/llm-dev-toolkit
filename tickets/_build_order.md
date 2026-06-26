@@ -1,8 +1,8 @@
 # Build Order
 
-This order sequences the open ticket set for implementation. It groups duplicate
-or overlapping tickets by root cause, keeps early changes small, and leaves
-decision-heavy work until after the low-risk correctness fixes.
+This historical order sequences the first completed ticket set. It grouped
+duplicate or overlapping tickets by root cause, kept early changes small, and
+left decision-heavy work until after the low-risk correctness fixes.
 
 ## Principles
 
@@ -23,6 +23,9 @@ Slice 9 is implemented and verified in
 Slice 10 is implemented and verified in
 [`docs/proofs/2026-06-22-arch-002-mcp-tool-table.md`](../docs/proofs/2026-06-22-arch-002-mcp-tool-table.md).
 All slices are complete.
+
+Current active work and draft upgrade candidates live in
+[`docs/tickets/INDEX.md`](../docs/tickets/INDEX.md).
 
 ## Ordered Slices
 
@@ -54,9 +57,9 @@ invalid-argument error contract.
 
 | Spec | Should Precede |
 | --- | --- |
-| `SPEC-001`: Git-aware traversal and hidden-file behavior | Slice 1, if a formal contract is desired before implementation. |
-| `SPEC-002`: CLI text, JSON output, and exit-code contract | Slices 4, 5, and 6. |
-| `SPEC-003`: MCP tool schema and CLI parity contract | Slice 10. |
+| `SPEC-002`: Git-aware traversal and hidden-file behavior | Slice 1, if a formal contract is desired before future traversal work. |
+| `SPEC-003`: CLI text, JSON output, and exit-code contract | Slices 4, 5, and 6 plus future CLI error-contract work. |
+| `SPEC-004`: MCP tool schema and CLI parity contract | Slice 10 plus future MCP validation work. |
 
 ## Completion Definition
 
