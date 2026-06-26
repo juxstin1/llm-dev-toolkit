@@ -1,195 +1,239 @@
-# tk — LLM Dev Toolkit
+# tk - LLM Dev Toolkit
 
-A fast, single-binary command-line toolkit for the everyday file chores that come up while working in a codebase: listing, finding, searching, hashing, inspecting, and tidying. Think of it as a handful of `ls`/`find`/`grep`/`tree`/`wc`-style tools bundled into one `tk` binary, with sensible defaults for development work — most commands respect `.gitignore` and skip the `.git` directory automatically.
+`tk` is a fast Rust CLI for the file-inspection chores that come up while
+working in a codebase: listing, finding, searching, hashing, inspecting,
+counting, and summarizing project trees.
 
-`tk` also ships agent-facing workflow support: `--format json` for structured output, `tk mcp` for read-only MCP tool access, and Spec0 command installers for Claude Code, Codex, and OpenCode.
+It is built for both humans and agents. Human output is readable by default;
+`--format json` gives scripts and LLM tools stable structured output; `tk mcp`
+exposes a read-only Model Context Protocol server; and `tk spec0` installs a
+small agent workflow for disciplined plan/execute/verify loops.
 
 [![CI](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/Rust-stable-orange.svg)](https://www.rust-lang.org/)
 
 <p align="center">
-  <img src="media/tk-demo.gif" alt="tk in action — ll, tree, search, stats, and largest" width="820">
+  <img src="media/tk-demo.gif" alt="tk in action: ll, tree, search, stats, and largest" width="820">
 </p>
 
-## Highlights
+## Why Use It
 
-- **Git-aware by default** — file walks honor `.gitignore`, `.git/info/exclude`, and your global gitignore, and never descend into `.git/`.
-- **Single static binary** — one `tk` executable, no runtime dependencies.
-- **Machine-readable** — every command takes `--format json` for raw, parseable output (numeric sizes, unix timestamps, no ANSI), and `tk mcp` runs as an MCP server so LLM agents can call the tools directly.
-- **Parallel where it counts** — duplicate detection and checksums fan out across CPU cores (`rayon`), with an optional `--threads` cap.
-- **Pipe-friendly** — honors `--color=auto|always|never` and `NO_COLOR`, and exits cleanly on a broken pipe (`tk tree | head` won't panic).
-- **Agent workflow toolkit** — bundles Spec0 slash-command prompts for Claude Code, Codex, and OpenCode.
-- **Cross-platform** — Linux, macOS, and Windows.
+- **One binary for common repo inspection**: familiar `ls`, `find`, `grep`,
+  `tree`, `wc`, checksum, duplicate, JSON, and archive workflows in one command.
+- **Git-aware traversal**: recursive commands honor ignore files and never walk
+  into `.git/`.
+- **Agent-native output**: every command supports `--format json` with raw
+  numeric fields and no ANSI escape codes.
+- **Read-only MCP server**: agents can inspect a project tree through curated
+  filesystem tools without mutation access.
+- **Spec0 workflow installer**: ship reusable `/spec0` prompts to Claude Code,
+  Codex, and OpenCode command surfaces.
+- **Cross-platform CI**: Linux, macOS, and Windows are checked on every pull
+  request.
 
 ## Install
 
-Requires a [Rust toolchain](https://rustup.rs/) (stable).
+`tk` currently builds from source. Install a stable Rust toolchain first:
+<https://rustup.rs/>.
 
 ```bash
-# From a local clone
 git clone https://github.com/juxstin1/llm-dev-toolkit.git
 cd llm-dev-toolkit
 cargo install --path .
-
-# Or build without installing
-cargo build --release   # binary at target/release/tk
 ```
 
-## Usage
-
-```
-tk <command> [options]
-tk --help            # list all commands
-tk <command> --help  # help for a specific command
-```
-
-Two global flags apply to every command:
-
-- `--color <auto|always|never>` controls ANSI styling (default `auto`; also respects the `NO_COLOR` environment variable).
-- `--format <text|json>` controls output (default `text`). `json` emits a parseable structure — raw byte sizes as numbers, modification times as unix seconds, and no ANSI — for piping into `jq`, scripts, or an LLM tool. Color is automatically disabled under `--format json`.
-
-### Commands
-
-| Command | Aliases | Description |
-|---|---|---|
-| `ls` | `l` | List directory contents (`-a` hidden, `-l` long format) |
-| `la` | | Shortcut for `ls -a` |
-| `ll` | | Shortcut for `ls -al` |
-| `tree` | `lt` | Directory tree (`-L` depth, `-a` hidden, `-d` dirs only) |
-| `ltd` | | Tree with a depth limit (`-L`) |
-| `ff` | `fd`, `find` | Find files by name substring (`-i`, `-e <ext>`, `-t f\|d`) |
-| `ff-ext` | | Find files by extension |
-| `ff-name` | | Find by name substring or glob (`-g`) |
-| `search` | `grep` | Search file contents (`-i`, `--line-number`, `-C <n>`, `-l`, `-e <ext>`) |
-| `cat` | | Concatenate and print files (`-n` line numbers) |
-| `preview` | | Syntax-highlighted file preview (`-l <lang>`, `-n`) |
-| `head` / `tail` | | First / last N lines (`-n <count>`) |
-| `count` | | Count lines, words, chars, bytes (`-l -w -c -b`, `wc`-compatible) |
-| `stats` | | File/dir/byte statistics (`-d` per-dir, `-t` per-extension) |
-| `dups` | | Find duplicate files by SHA-256 (`-m <min-size>`, `-d` delete, `--threads`) |
-| `recent` | | Recently modified files (`-n`, `-d <days>`, `-e <ext>`) |
-| `largest` | | Largest files or directories (`-n`, `-d` dirs) |
-| `empty` | | Find empty files (`-f`) and directories (`-d`) |
-| `sort` | | Sort directory entries by name/size/date/ext (`-b`, `-r`, `-n`, `-d`) |
-| `checksum` | | File checksums — sha256/224/384/512, md5 (`-a`, `--threads`) |
-| `extract` | | Extract `.zip`, `.tar`, `.tar.gz`/`.tgz`, `.gz` (`-o <dir>`) |
-| `json` | | `format` / `validate` / `keys` for JSON (file or stdin) |
-| `clip` | | Read/write the system clipboard (`-i` in, `-o` out; `--allow-file-fallback` permits persistent fallback storage when the system clipboard is unavailable) |
-| `info` | | File details (`-f <path>`) or a system overview |
-| `spec0` | | List, print, or install Spec0 agent workflow commands |
-| `mcp` | | Run as an MCP server over stdio (read-only tools for LLM agents) |
-
-### Examples
+Or build without installing:
 
 ```bash
-tk ll                          # long listing, including hidden entries
-tk tree -L 2                   # tree, two levels deep
-tk ff config -e toml              # files whose name contains "config" with a .toml extension
-tk search "TODO" -i --line-number # case-insensitive content search with line numbers
-tk grep "fn main" -C 2            # matches with 2 lines of surrounding context
-tk dups -m 1mib                # duplicate files at least 1 MiB, by content hash
-tk largest -n 10               # ten biggest files under the current tree
-tk recent -d 1                 # files modified in the last day
-tk count -l src/**/*.rs        # line counts (matches `wc -l`)
-tk checksum -a sha512 file.iso # SHA-512 of a file
-cat data.json | tk json format # pretty-print JSON from stdin
-tk stats --format json -t      # per-extension stats as JSON
-tk tree -L 2 --format json | jq '.children[].name'
-tk spec0 list                  # show bundled Spec0 commands and install targets
-tk spec0 install --agent all --scope user # install Spec0 into local agent config dirs
+cargo build --release
+./target/release/tk --help
 ```
 
-## Spec0 Agent Commands
+On Windows, run:
 
-Spec0 is a small agent workflow framework for moving from rough intent to a bounded, verifiable implementation loop:
+```powershell
+cargo build --release
+.\target\release\tk.exe --help
+```
 
-1. Orient around the repo, branch, dirty files, and local agent instructions.
-2. Frame the goal, non-goals, assumptions, target files, and verification.
-3. Plan small implementation slices.
-4. Execute the next useful slice.
-5. Verify with the narrowest meaningful checks.
-6. Leave a compact handoff.
-
-The toolkit bundles Spec0 as reusable prompts under [`spec0/`](spec0/) and can install them into the local command surfaces used by Claude Code, Codex, and OpenCode.
-
-### Installed commands
-
-| Command | Purpose |
-|---|---|
-| `/spec0` | Run the full orient, frame, plan, execute, verify, handoff loop |
-| `/spec0-plan` | Convert a rough request into a bounded implementation plan |
-| `/spec0-exec` | Execute the next planned slice and verify it |
-| `/spec0-review` | Review current work against the Spec0 frame |
-| `/spec0-handoff` | Summarize status for the next agent session |
-
-### Install targets
-
-`tk spec0 install` writes the same workflow prompts to the right location for each agent:
-
-| Agent | User scope | Project scope | Invoke |
-|---|---|---|---|
-| Claude Code | `~/.claude/commands/*.md` | `.claude/commands/*.md` | `/spec0` |
-| OpenCode | `~/.config/opencode/commands/*.md` | `.opencode/commands/*.md` | `/spec0` |
-| Codex | `~/.agents/skills/spec0/SKILL.md` plus `~/.codex/prompts/*.md` | `.agents/skills/spec0/SKILL.md` | `$spec0` skill or `/prompts:spec0` shim |
-
-Codex custom prompts are deprecated in favor of Skills, so the durable Codex path is the installed `spec0` skill. The prompt shims are included for CLI/IDE slash-menu convenience.
-
-### Install examples
+## Quick Start
 
 ```bash
+tk ll
+tk tree -L 2
+tk ff config -e toml
+tk search "TODO" src --line-number
+tk stats --format json -t
+tk largest -n 10
+tk checksum -a sha512 file.iso
 tk spec0 list
-tk spec0 print spec0-plan
-tk spec0 install --agent all --scope user --dry-run
-tk spec0 install --agent all --scope user
-tk spec0 install --agent all --scope project --dir .
-tk spec0 install --agent codex --scope project --dir .
-tk spec0 install --agent claude --scope user --force
 ```
 
-Existing files are skipped by default; pass `--force` when you intentionally want to overwrite them.
+Global flags:
 
-After installing user-scoped commands, restart the target agent or open a new session if the slash command menu does not refresh immediately.
+- `--color <auto|always|never>` controls ANSI color output. `NO_COLOR` is
+  respected.
+- `--format <text|json>` chooses human output or stable machine-readable JSON.
 
-## For LLM agents
+## Command Map
 
-`tk` is built to be driven by an LLM as well as a human.
+| Command | Aliases | Purpose |
+| --- | --- | --- |
+| `ls` | `l` | List directory contents. |
+| `la` | | Shortcut for `ls -a`. |
+| `ll` | | Shortcut for `ls -al`. |
+| `tree` | `lt` | Show a directory tree. |
+| `ltd` | | Show a tree with a required depth limit. |
+| `ff` | `fd`, `find` | Find files or directories by name substring. |
+| `ff-ext` | | Find files by extension. |
+| `ff-name` | | Find names by substring or glob. |
+| `search` | `grep` | Search file contents. |
+| `cat` | | Print files. |
+| `preview` | | Syntax-highlighted preview. |
+| `head` / `tail` | | Show first or last lines. |
+| `count` | | Count lines, words, chars, and bytes. |
+| `stats` | | Summarize file, directory, and byte counts. |
+| `dups` | | Find duplicate files by SHA-256. |
+| `recent` | | List recently modified files. |
+| `largest` | | List largest files or directories. |
+| `empty` | | Find empty files and directories. |
+| `sort` | | Sort one directory by name, size, date, or extension. |
+| `checksum` | | Compute SHA and MD5 checksums. |
+| `extract` | | Extract `.zip`, `.tar`, `.tar.gz`, `.tgz`, and `.gz` archives. |
+| `json` | | Format, validate, or inspect JSON. |
+| `clip` | | Read or write the system clipboard. |
+| `info` | | Show file details or a system overview. |
+| `spec0` | | List, print, or install Spec0 agent workflow commands. |
+| `mcp` | | Run the read-only MCP server over stdio. |
 
-**Structured output.** Append `--format json` to any command and it returns a parseable structure instead of formatted text — raw numeric sizes, unix timestamps, and no ANSI escapes — so a model (or `jq`) never has to parse prose:
+## Machine-Readable Output
+
+Append `--format json` to get parseable output:
 
 ```bash
-$ tk largest -n 2 --format json
+tk largest -n 2 --format json
+```
+
+Example shape:
+
+```json
 [
-  { "path": "media/tk-demo.gif", "size": 1048576 },
-  { "path": "Cargo.lock", "size": 41231 }
+  { "path": "media/tk-demo.gif", "size": 5669205 },
+  { "path": "Cargo.lock", "size": 43850 }
 ]
 ```
 
-**MCP server.** `tk mcp` speaks the [Model Context Protocol](https://modelcontextprotocol.io) over stdio, exposing a curated set of **read-only** tools (`ls`, `tree`, `find`, `search`, `stats`, `dups`, `largest`, `recent`, `empty`, `count`, `checksum`, `info`). Side-effecting commands (`extract`, `clip`, `dups --delete`) and ones redundant with an agent's built-in file reading (`cat`, `head`, `preview`) are deliberately left out, so a connected model can inspect a tree but never mutate it.
+Runtime errors in JSON mode keep stdout empty and emit a JSON object on stderr:
 
-Point any MCP client at the binary. For example, in a Claude Code / Cursor MCP config:
+```json
+{ "error": "Unsupported algorithm: sha1" }
+```
+
+## MCP Server
+
+`tk mcp` speaks newline-delimited JSON-RPC 2.0 over stdio and exposes a curated
+read-only tool set:
+
+`ls`, `tree`, `find`, `search`, `stats`, `dups`, `largest`, `recent`, `empty`,
+`count`, `checksum`, and `info`.
+
+Side-effecting commands such as `extract`, `clip`, and `dups --delete` are not
+exposed through MCP.
+
+Example MCP config:
 
 ```jsonc
 {
   "mcpServers": {
-    "tk": { "command": "tk", "args": ["mcp"] }
+    "tk": {
+      "command": "tk",
+      "args": ["mcp"]
+    }
   }
 }
 ```
 
-The transport is newline-delimited JSON-RPC 2.0 — no async runtime, no sidecar process. Each tool call re-invokes `tk … --format json` internally, so MCP results are identical to the CLI's JSON output.
+## Spec0 Agent Workflow
+
+Spec0 is the local agent workflow bundled with this repository. It keeps agentic
+development grounded in a small loop:
+
+1. Orient around repo state, branch, dirty files, and instructions.
+2. Frame the goal, non-goals, assumptions, target files, and verification.
+3. Plan small implementation slices.
+4. Execute the next useful slice.
+5. Verify with the narrowest meaningful checks first.
+6. Handoff changed files, checks, risks, and next actions.
+
+Install prompts for supported agents:
+
+```bash
+tk spec0 list
+tk spec0 install --agent all --scope user --dry-run
+tk spec0 install --agent all --scope user
+tk spec0 install --agent all --scope project --dir .
+```
+
+Install targets:
+
+| Agent | User scope | Project scope |
+| --- | --- | --- |
+| Claude Code | `~/.claude/commands/*.md` | `.claude/commands/*.md` |
+| OpenCode | `~/.config/opencode/commands/*.md` | `.opencode/commands/*.md` |
+| Codex | `~/.agents/skills/spec0/SKILL.md` plus `~/.codex/prompts/*.md` | `.agents/skills/spec0/SKILL.md` |
+
+See [spec0/README.md](spec0/README.md) and
+[docs/runbooks/autonomous-loop.md](docs/runbooks/autonomous-loop.md) for the
+repo-local development loop.
 
 ## Development
 
+Required tools:
+
+- Stable Rust toolchain.
+- Node.js 22 for the Remotion demo check.
+
+Standard verification:
+
 ```bash
-cargo build            # debug build
-cargo test             # unit + integration tests
-cargo clippy --all-targets
-cargo fmt
+cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
+cargo test --all
+cargo build --release
 ```
 
-Tests live alongside each command module (`#[cfg(test)]`) and as end-to-end CLI tests in [`tests/cli.rs`](tests/cli.rs).
+Demo verification:
 
-The demo GIF at the top is a [Remotion](https://remotion.dev) project under [`demo/`](demo/) — `cd demo && npm install && npm run studio` to edit it, or `npm run render` to re-render.
+```bash
+cd demo
+npm ci
+npm run check
+```
+
+The demo GIF is a [Remotion](https://remotion.dev) project under
+[demo/](demo/). Use `npm run studio` to edit it and `npm run render` to produce
+the MP4 output.
+
+## Project Docs
+
+- [Spec0 front door](docs/README.md)
+- [Codebase map](docs/CODEBASE_MAP.md)
+- [Specs](docs/specs/README.md)
+- [Ticket queue](docs/tickets/INDEX.md)
+- [Runbooks](docs/runbooks/README.md)
+- [Proof logs](docs/proofs/README.md)
+
+## Contributing
+
+Contributions are welcome when they are scoped, tested, and aligned with the
+existing command contracts. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and
+open an issue for behavior changes before writing a broad PR.
+
+## Security
+
+Do not disclose vulnerabilities in public issues with exploit details. See
+[SECURITY.md](SECURITY.md) for the reporting path.
 
 ## License
 

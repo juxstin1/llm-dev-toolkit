@@ -1,6 +1,6 @@
 # Codebase Map
 
-Snapshot date: 2026-06-22.
+Snapshot date: 2026-06-26.
 
 This map describes the current checkout. Generated and dependency folders such
 as `target/`, `demo/node_modules/`, and `demo/out/` should be excluded from
@@ -60,16 +60,14 @@ normal search and review.
 | `docs/specs/SPEC-000-planning-system.md` | Contract for this planning layer. |
 | `docs/plans/spec-development-roadmap.md` | First roadmap for specs and bug fixes. |
 | `docs/tickets/INDEX.md` | Active queue index. |
+| `docs/tickets/TEMPLATE.md` | Implementation-ready ticket template. |
+| `docs/runbooks/autonomous-loop.md` | Spec0 autonomous loop and subagent contract. |
 | `tickets/*.md` | GitHub issue body drafts created before GitHub auth was fixed. |
 
-## Known Current Bug Queue
+## Completed Initial Bug Queue
 
-- `tree -a` includes `.git` despite the git-aware contract.
-- `stats -d` overcounts files for directories.
-- `info -f` likely misclassifies symlinks.
-- `checksum` exits successfully for unsupported algorithms.
-- Invalid enum-like CLI option values are accepted silently.
-- `search -e .rs` does not match files while `search -e rs` does.
-- `ltd -L` shows hidden entries by default unlike `tree -L`.
+The first seven bug tickets plus the follow-up security, demo CI, and MCP
+architecture slices are implemented and verified.
 
-See [tickets/INDEX.md](tickets/INDEX.md) for the current queue.
+See [docs/tickets/INDEX.md](tickets/INDEX.md) for the active queue and draft
+upgrade candidates.

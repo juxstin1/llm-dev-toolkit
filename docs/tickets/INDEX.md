@@ -1,9 +1,14 @@
 # Ticket Index
 
 This is the repo-local active work queue. Root-level `tickets/*.md` files are
-GitHub issue body drafts created before GitHub CLI auth was fixed.
+historical GitHub issue body drafts created before GitHub CLI auth was fixed.
 
 Implementation sequencing lives in [`tickets/_build_order.md`](../../tickets/_build_order.md).
+New tickets should use [TEMPLATE.md](TEMPLATE.md).
+
+If no ticket is `ready`, run the
+[autonomous loop](../runbooks/autonomous-loop.md) to research and draft the next
+ticket before changing product code.
 
 ## Status Values
 
@@ -45,3 +50,30 @@ gh issue create --title "`ltd -L` shows hidden entries by default unlike `tree -
 ```
 
 Once live issue numbers exist, add them to this index.
+
+## Ready Queue
+
+No tickets are ready right now. Promote one draft candidate only after its
+decision gates are resolved and it has acceptance criteria, verification, proof
+target, rollback, and handoff notes.
+
+## Completed Upgrade Tickets
+
+| ID | Priority | Status | Ticket | Scope | Proof |
+| --- | --- | --- | --- | --- | --- |
+| `TK-UPGRADE-002` | P1 | done | [JSON runtime error contract tests](TK-UPGRADE-002-json-runtime-error-contract-tests.md) | Test-only coverage for JSON-mode runtime errors. | [proof](../proofs/2026-06-26-tk-upgrade-002-json-runtime-errors.md) |
+
+## Draft Upgrade Candidates
+
+These candidates came from a 2026-06-26 read-only audit and need ticket files
+before implementation.
+
+| ID | Priority | Status | Candidate | Likely Touchpoints | Next Action |
+| --- | --- | --- | --- | --- | --- |
+| `TK-UPGRADE-001` | P0 | draft | Fail clearly on missing or unreadable walk roots instead of silently dropping walker errors. | `src/commands/mod.rs`, `tests/cli.rs` | Write `SPEC-003` or a ticket-local exit-code contract, then add failing tests. |
+| `TK-UPGRADE-003` | P1 | draft | Harden MCP argument validation for non-string arrays and invalid integer values. | `src/mcp.rs`, `tests/cli.rs` | Resolve MCP error-semantics gate or cover it under `SPEC-004`. |
+| `TK-UPGRADE-004` | P1 | draft | Lock MCP tool inventory and schema shape against the README contract. | `src/mcp.rs`, `tests/cli.rs`, `README.md` | Create a test-first ticket; source changes only if the test exposes drift. |
+| `TK-UPGRADE-005` | P1 | draft | Add natural `tk info PATH` while preserving `tk info -f PATH`. | `src/main.rs`, `src/commands/info.rs`, `tests/cli.rs`, `README.md` | Product CLI decision gate before implementation. |
+| `TK-UPGRADE-006` | P1 | draft | Make documented aliases visible and contract-tested in help. | `src/main.rs`, `tests/cli.rs`, `README.md` | Product help-output decision gate before implementation. |
+| `TK-UPGRADE-007` | P2 | draft | Normalize extension filter behavior across `search`, `ff-ext`, and `recent`. | `src/commands/find.rs`, `src/commands/recent.rs`, `tests/cli.rs` | Product behavior decision gate before implementation. |
+| `TK-UPGRADE-008` | P2 | draft | Make no-arg `tk info` cheaper or explicitly opt into disk usage. | `src/main.rs`, `src/commands/info.rs`, `tests/cli.rs`, `README.md` | UX/performance decision gate before implementation. |

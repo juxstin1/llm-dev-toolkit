@@ -1,6 +1,6 @@
 # Spec Development Roadmap
 
-Snapshot date: 2026-06-22.
+Snapshot date: 2026-06-26.
 
 ## Why This Exists
 
@@ -23,7 +23,7 @@ surfaces explicit before implementation work changes behavior.
 
 ## Phase 0: Planning Layer
 
-Status: in progress.
+Status: implemented.
 
 Deliverables:
 
@@ -35,12 +35,13 @@ Deliverables:
 - `docs/tickets/INDEX.md`
 - `docs/adr/README.md`
 - `docs/runbooks/README.md`
+- `docs/runbooks/autonomous-loop.md`
 - `docs/proofs/README.md`
 
 Acceptance:
 
 - Docs describe current state and avoid product-code changes.
-- Known ticket drafts are indexed.
+- Completed ticket drafts and draft upgrade candidates are indexed.
 - `git diff --check` passes.
 
 ## Phase 1: Stabilize Known Bugs
@@ -67,7 +68,7 @@ Each bug fix should include:
 
 ## Phase 2: Write Behavior Contracts
 
-Status: in progress. `SPEC-001` now covers CLI ergonomics and workflow
+Status: ongoing. `SPEC-001` now covers CLI ergonomics and workflow
 shortcuts.
 
 Candidate specs:
@@ -93,10 +94,23 @@ Candidate work:
 - Demo GIF update runbook.
 - Proof template for cross-platform CI and local release builds.
 
+## Phase 4: Autonomous Upgrade Loop
+
+Status: implemented for docs/control-plane; ongoing for ticket execution.
+
+The loop lives in
+[`docs/runbooks/autonomous-loop.md`](../runbooks/autonomous-loop.md). It defines
+research, ticket readiness, subagent contracts, implementation, verification,
+proof capture, and handoff.
+
+Next upgrade work should promote one draft candidate from
+[`docs/tickets/INDEX.md`](../tickets/INDEX.md) to `ready`, then implement it in a
+small verified slice.
+
 ## First Follow-Ups
 
-- Decide whether to keep GitHub issue drafts under root `tickets/` or migrate
-  future ticket bodies under `docs/tickets/`.
-- Fix GitHub CLI auth before creating live issues.
-- Pick the traversal bug first because it directly contradicts the README and
-  shared walker contract.
+- Promote one low-risk draft upgrade ticket to `ready` after any decision gate
+  is resolved.
+- Write `SPEC-003` before broader CLI output or exit-code changes.
+- Write `SPEC-004` before broader MCP schema or error-semantics changes.
+- Fix GitHub CLI auth only if live archival issues are needed.

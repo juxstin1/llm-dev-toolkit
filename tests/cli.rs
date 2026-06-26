@@ -494,6 +494,24 @@ fn tk_json(args: &[&str]) -> serde_json::Value {
         .unwrap_or_else(|e| panic!("output was not valid JSON: {e}\n{stdout}"))
 }
 
+fn assert_json_runtime_error(args: &[&str], expected: &str) {
+    let (stdout, stderr, success) = tk(args);
+    assert!(!success, "command should fail");
+    assert!(
+        stdout.trim().is_empty(),
+        "stdout should stay empty on error, got: {stdout}"
+    );
+    let value: serde_json::Value = serde_json::from_str(stderr.trim())
+        .unwrap_or_else(|e| panic!("stderr was not valid JSON: {e}\n{stderr}"));
+    let error = value["error"]
+        .as_str()
+        .unwrap_or_else(|| panic!("stderr JSON should contain an error string: {value}"));
+    assert!(
+        error.contains(expected),
+        "error should contain {expected:?}, got: {error}"
+    );
+}
+
 #[test]
 fn test_json_ls_is_array_of_typed_entries() {
     let dir = setup_temp_dir("json-ls");
@@ -649,6 +667,42 @@ fn test_json_info_reports_symlink_path_type() {
     }
     let v = tk_json(&["info", "-f", link.to_str().unwrap(), "--format", "json"]);
     assert_eq!(v["type"], "symlink");
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_runtime_error_for_invalid_checksum_algorithm() {
+    let dir = setup_temp_dir("json-error-checksum");
+    let file = dir.join("hello.txt");
+    assert_json_runtime_error(
+        &[
+            "checksum",
+            file.to_str().unwrap(),
+            "-a",
+            "sha1",
+            "--format",
+            "json",
+        ],
+        "Unsupported algorithm",
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_json_runtime_error_for_non_object_json_keys() {
+    let dir = setup_temp_dir("json-error-keys");
+    let input_path = dir.join("array.json");
+    std::fs::write(&input_path, b"[1,2,3]").unwrap();
+    assert_json_runtime_error(
+        &[
+            "json",
+            "keys",
+            input_path.to_str().unwrap(),
+            "--format",
+            "json",
+        ],
+        "JSON value is not an object",
+    );
     cleanup(&dir);
 }
 

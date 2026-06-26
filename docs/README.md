@@ -4,8 +4,9 @@ This repository uses a lightweight spec-first planning layer for the `tk` CLI
 and MCP server. Product code stays in `src/`; durable planning context lives
 under `docs/`.
 
-Current status: draft planning layer, created 2026-06-22. Recheck the live
-checkout before treating runtime facts as current.
+Current status: planning layer implemented, autonomous loop documented, and the
+initial bug queue completed. Recheck the live checkout before treating runtime
+facts as current.
 
 | Need | Use |
 | --- | --- |
@@ -15,6 +16,7 @@ checkout before treating runtime facts as current.
 | Active implementation queue | [tickets/INDEX.md](tickets/INDEX.md) |
 | Architecture decisions | [adr/README.md](adr/README.md) |
 | Commands and operations | [runbooks/README.md](runbooks/README.md) |
+| Autonomous Spec0 loop | [runbooks/autonomous-loop.md](runbooks/autonomous-loop.md) |
 | Validation evidence | [proofs/README.md](proofs/README.md) |
 
 ## Working Rules
@@ -25,8 +27,12 @@ checkout before treating runtime facts as current.
 - Record verification evidence in `docs/proofs/` when behavior is checked.
 - Do not change product code as part of planning-only updates.
 
-## Current Queue
+## Current Work Queue
 
-The first bug queue was drafted as GitHub issue bodies under `tickets/`.
-`docs/tickets/INDEX.md` is the repo-local planning index that points to those
-drafts until real GitHub issue numbers exist.
+The first bug queue was drafted as GitHub issue bodies under `tickets/`, then
+implemented and verified. `docs/tickets/INDEX.md` is the repo-local source of
+truth for active work, draft upgrade candidates, and ticket readiness rules.
+
+When no ticket is ready, use
+[`runbooks/autonomous-loop.md`](runbooks/autonomous-loop.md) to research and
+draft the next ticket before changing product code.
