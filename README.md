@@ -2,16 +2,17 @@
 
 `tk` is a fast Rust CLI for the file-inspection chores that come up while
 working in a codebase: listing, finding, searching, hashing, inspecting,
-counting, and summarizing project trees.
+counting, summarizing project trees, reading files, fetching URLs, and more.
 
 It is built for both humans and agents. Human output is readable by default;
 `--format json` gives scripts and LLM tools stable structured output; `tk mcp`
-exposes a read-only Model Context Protocol server; and `tk spec0` installs a
-small agent workflow for disciplined plan/execute/verify loops.
+exposes a read-only Model Context Protocol server with 23 tools; and `tk spec0`
+installs a small agent workflow for disciplined plan/execute/verify loops.
 
 [![CI](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-stable-orange.svg)](https://www.rust-lang.org/)
+![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
 
 <p align="center">
   <img src="media/tk-demo.gif" alt="tk in action: ll, tree, search, stats, and largest" width="820">
@@ -25,8 +26,19 @@ small agent workflow for disciplined plan/execute/verify loops.
   into `.git/`.
 - **Agent-native output**: every command supports `--format json` with raw
   numeric fields and no ANSI escape codes.
-- **Read-only MCP server**: agents can inspect a project tree through curated
-  filesystem tools without mutation access.
+- **Read-only MCP server**: agents can inspect a project tree through 23 curated
+  filesystem and network tools without mutation access.
+- **Git integration**: `tk status`, `tk diff`, `tk log`, `tk branch` — structured
+  JSON output from git plumbing.
+- **Context window builder**: `tk context` concatenates files with path headers,
+  line numbers, glob filtering, and token-budget truncation.
+- **URL fetching**: `tk fetch` and `tk scrape` pull web content with
+  readability extraction and CSS selector support (feature-gated behind
+  `--features net`).
+- **Project detection**: `tk detect` auto-identifies Rust, TypeScript,
+  JavaScript, Python, Go, and Java projects.
+- **Symbol extraction**: `tk symbols` extracts function, class, and type
+  definitions from source files.
 - **Spec0 workflow installer**: ship reusable `/spec0` prompts to Claude Code,
   Codex, and OpenCode command surfaces.
 - **Cross-platform CI**: Linux, macOS, and Windows are checked on every pull
@@ -34,28 +46,32 @@ small agent workflow for disciplined plan/execute/verify loops.
 
 ## Install
 
-`tk` currently builds from source. Install a stable Rust toolchain first:
-<https://rustup.rs/>.
+Install a stable Rust toolchain first: <https://rustup.rs/>.
+
+Basic install:
+
+```bash
+cargo install --git https://github.com/juxstin1/llm-dev-toolkit.git
+```
+
+Or build from source with network features (fetch/scrape):
 
 ```bash
 git clone https://github.com/juxstin1/llm-dev-toolkit.git
 cd llm-dev-toolkit
-cargo install --path .
-```
-
-Or build without installing:
-
-```bash
-cargo build --release
+cargo build --release --features net
 ./target/release/tk --help
 ```
 
-On Windows, run:
+On Windows:
 
 ```powershell
-cargo build --release
+cargo build --release --features net
 .\target\release\tk.exe --help
 ```
+
+All features are enabled by default. To build without network dependencies, use
+`--no-default-features`.
 
 ## Quick Start
 
@@ -67,6 +83,14 @@ tk search "TODO" src --line-number
 tk stats --format json -t
 tk largest -n 10
 tk checksum -a sha512 file.iso
+tk status
+tk diff --staged
+tk context . --include '**/*.rs' --max-tokens 8000
+tk symbols -k fn
+tk detect
+tk read-file src/main.rs --offset 1 --limit 20
+tk fetch https://example.com --mode markdown
+tk scrape https://docs.rs --selector "article.doc"
 tk spec0 list
 ```
 
@@ -104,8 +128,22 @@ Global flags:
 | `json` | | Format, validate, or inspect JSON. |
 | `clip` | | Read or write the system clipboard. |
 | `info` | | Show file details or a system overview. |
+| `config` | | Show effective tk configuration. |
+| `detect` | | Detect project type, language, and build system. |
+| `status` | | Git working tree status (branch, staged, unstaged). |
+| `diff` | | Git diff of unstaged or staged changes. |
+| `log` | | Git commit log with hash, author, date, message. |
+| `branch` | | List git branches with current branch indicator. |
+| `symbols` | | Extract function, class, and type definitions. |
+| `context` | | Concatenate files with path headers, glob filters, and token budget. |
+| `read-file` | | Read a file with line numbers, binary detection, and size limit. |
+| `read-lines` | | Read a specific range of lines from a file. |
+| `fetch` ⚡ | | Fetch a URL and return content as text or markdown. |
+| `scrape` ⚡ | | Scrape a web page with CSS selector or readability extraction. |
 | `spec0` | | List, print, or install Spec0 agent workflow commands. |
-| `mcp` | | Run the read-only MCP server over stdio. |
+| `mcp` | | Run the read-only MCP server (23 tools) over stdio. |
+
+⚡ Requires the `net` feature (enabled by default).
 
 ## Machine-Readable Output
 
@@ -132,14 +170,20 @@ Runtime errors in JSON mode keep stdout empty and emit a JSON object on stderr:
 
 ## MCP Server
 
-`tk mcp` speaks newline-delimited JSON-RPC 2.0 over stdio and exposes a curated
-read-only tool set:
+`tk mcp` speaks newline-delimited JSON-RPC 2.0 over stdio and exposes 23 curated
+read-only tools:
 
-`ls`, `tree`, `find`, `search`, `stats`, `dups`, `largest`, `recent`, `empty`,
-`count`, `checksum`, and `info`.
+**Filesystem:** `ls`, `tree`, `find`, `search`, `stats`, `dups`, `largest`,
+`recent`, `empty`, `count`, `checksum`, `info`, `read_file`, `read_lines`
+
+**Git:** `status`, `diff`, `log`, `branch`
+
+**Analysis:** `detect`, `symbols`, `context`
+
+**Network:** `fetch`, `scrape`
 
 Side-effecting commands such as `extract`, `clip`, and `dups --delete` are not
-exposed through MCP.
+exposed through MCP. Network tools require the `net` feature (default on).
 
 Example MCP config:
 
