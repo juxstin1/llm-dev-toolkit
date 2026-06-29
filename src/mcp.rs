@@ -206,6 +206,17 @@ fn tool_defs() -> Vec<ToolDef> {
                 }
             }),
         },
+        ToolDef {
+            name: "detect",
+            description: "Detect project type, language, build system, and test framework from config files.",
+            build_args: build_detect_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": string_prop("Root directory (default: current dir)")
+                }
+            }),
+        },
     ]
 }
 
@@ -404,6 +415,14 @@ fn build_info_args(args: &Value) -> Result<Vec<String>, String> {
     if let Some(f) = arg_str(args, "file") {
         v.push("-f".into());
         v.push(f);
+    }
+    Ok(v)
+}
+
+fn build_detect_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["detect".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
     }
     Ok(v)
 }
@@ -693,6 +712,7 @@ mod tests {
                 json!({ "file": "Cargo.toml" }),
                 vec!["info", "-f", "Cargo.toml"],
             ),
+            ("detect", json!({ "path": "src" }), vec!["detect", "src"]),
         ];
 
         for (name, args, expected) in cases {

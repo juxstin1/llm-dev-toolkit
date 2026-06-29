@@ -1,6 +1,8 @@
 pub mod checksum;
 pub mod clip;
+pub mod config;
 pub mod count;
+pub mod detect;
 pub mod dups;
 pub mod empty;
 pub mod extract;
