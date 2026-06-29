@@ -1,6 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 mod commands;
+mod config;
 mod mcp;
 
 use clap::{Parser, Subcommand};
@@ -11,19 +12,17 @@ struct Cli {
     #[arg(
         long,
         global = true,
-        default_value = "auto",
         value_enum,
         help = "Color output: auto, always, never"
     )]
-    color: commands::ColorChoice,
+    color: Option<commands::ColorChoice>,
     #[arg(
         long,
         global = true,
-        default_value = "text",
         value_enum,
         help = "Output format: text (human) or json (machine-readable)"
     )]
-    format: commands::OutputFormat,
+    format: Option<commands::OutputFormat>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -89,6 +88,36 @@ enum Commands {
     Spec0(commands::spec0::Spec0Args),
     #[command(about = "Run as an MCP server over stdio (read-only tools for LLM agents)")]
     Mcp,
+    #[command(about = "Show or inspect tk configuration")]
+    Config(commands::config::ConfigArgs),
+    #[command(about = "Detect project type, language, and toolchain from config files")]
+    Detect(commands::detect::DetectArgs),
+    #[command(about = "Show working tree status")]
+    Status(commands::git::StatusArgs),
+    #[command(about = "Show diff of working tree or staged changes")]
+    Diff(commands::git::DiffArgs),
+    #[command(about = "Show commit log")]
+    Log(commands::git::LogArgs),
+    #[command(about = "List branches")]
+    Branch(commands::git::BranchArgs),
+    #[command(about = "Extract symbol definitions from source files")]
+    Symbols(commands::symbols::SymbolsArgs),
+    #[command(about = "Concatenate files with path headers and optional token-budget truncation")]
+    Context(commands::context::ContextArgs),
+    #[command(about = "Fetch a URL and return its content as text or markdown")]
+    Fetch(commands::fetch::FetchArgs),
+    #[command(about = "Scrape a web page using CSS selector or readability extraction")]
+    Scrape(commands::fetch::ScrapeArgs),
+    #[command(
+        name = "read-file",
+        about = "Read a file with line numbers, binary detection, and size limit"
+    )]
+    ReadFile(commands::read::ReadFileArgs),
+    #[command(
+        name = "read-lines",
+        about = "Read a specific range of lines from a file"
+    )]
+    ReadLines(commands::read::ReadLinesArgs),
 }
 
 #[derive(clap::Args)]
@@ -400,10 +429,23 @@ fn install_broken_pipe_guard() {
 fn main() {
     install_broken_pipe_guard();
 
+    config::init();
+
     let cli = Cli::parse();
 
-    commands::init_format(cli.format);
-    commands::init_color(cli.color);
+    let format = cli.format.unwrap_or_else(|| {
+        config::get()
+            .default_format()
+            .unwrap_or(commands::OutputFormat::Text)
+    });
+    let color = cli.color.unwrap_or_else(|| {
+        config::get()
+            .default_color()
+            .unwrap_or(commands::ColorChoice::Auto)
+    });
+
+    commands::init_format(format);
+    commands::init_color(color);
 
     let result = match &cli.command {
         Commands::Ls(a) => commands::ls::run(a),
@@ -434,6 +476,20 @@ fn main() {
         Commands::Info(a) => commands::info::run(a),
         Commands::Spec0(a) => commands::spec0::run(a),
         Commands::Mcp => mcp::run(),
+        Commands::Config(a) => commands::config::run(a),
+        Commands::Detect(a) => commands::detect::run(a),
+        Commands::Status(a) => commands::git::run_status(a),
+        Commands::Diff(a) => commands::git::run_diff(a),
+        Commands::Log(a) => commands::git::run_log(a),
+        Commands::Branch(a) => commands::git::run_branch(a),
+        Commands::Symbols(a) => commands::symbols::run(a),
+        Commands::Context(a) => commands::context::run(a),
+        #[cfg(feature = "net")]
+        Commands::Fetch(a) => commands::fetch::run_fetch(a),
+        #[cfg(feature = "net")]
+        Commands::Scrape(a) => commands::fetch::run_scrape(a),
+        Commands::ReadFile(a) => commands::read::run_read_file(a),
+        Commands::ReadLines(a) => commands::read::run_read_lines(a),
     };
 
     if let Err(e) = result {

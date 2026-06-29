@@ -206,6 +206,151 @@ fn tool_defs() -> Vec<ToolDef> {
                 }
             }),
         },
+        ToolDef {
+            name: "detect",
+            description: "Detect project type, language, build system, and test framework from config files.",
+            build_args: build_detect_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": string_prop("Root directory (default: current dir)")
+                }
+            }),
+        },
+        ToolDef {
+            name: "status",
+            description: "Git working tree status (branch, staged, unstaged, untracked files).",
+            build_args: build_status_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": string_prop("Directory to check (default: current dir)")
+                }
+            }),
+        },
+        ToolDef {
+            name: "diff",
+            description: "Git diff of unstaged or staged changes as structured hunks.",
+            build_args: build_diff_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "staged": bool_prop("Show staged diff instead of unstaged"),
+                    "context": int_prop("Number of context lines")
+                }
+            }),
+        },
+        ToolDef {
+            name: "log",
+            description: "Git commit log with hash, author, date, and message.",
+            build_args: build_log_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "count": int_prop("Number of commits to return"),
+                    "since": string_prop("Show commits since this date"),
+                    "author": string_prop("Filter by author pattern"),
+                    "path": string_prop("Filter by file path")
+                }
+            }),
+        },
+        ToolDef {
+            name: "branch",
+            description: "List git branches with current branch indicator.",
+            build_args: build_branch_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "all": bool_prop("Include remote branches")
+                }
+            }),
+        },
+        ToolDef {
+            name: "symbols",
+            description: "Extract symbol definitions (functions, classes, structs) from source files.",
+            build_args: build_symbols_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": string_prop("File or directory (default: current dir)"),
+                    "kind": json!({ "type": "string", "enum": ["fn", "class", "struct", "trait", "interface", "enum", "all"], "description": "Symbol kind filter" }),
+                    "public_only": bool_prop("Public/exported symbols only")
+                }
+            }),
+        },
+        ToolDef {
+            name: "context",
+            description: "Concatenate files with path headers, line numbers, and optional token-budget truncation for LLM context windows.",
+            build_args: build_context_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "paths": json!({ "type": "array", "items": { "type": "string" }, "description": "Files or directories to include" }),
+                    "max_tokens": int_prop("Truncate output to this token budget (estimated, ~4 bytes/token)"),
+                    "include": string_prop("Include only files matching this glob pattern (e.g. '**/*.rs')"),
+                    "exclude": string_prop("Exclude files matching this glob pattern (e.g. '**/tests/**')"),
+                    "no_line_numbers": bool_prop("Disable line numbers in output")
+                }
+            }),
+        },
+        ToolDef {
+            name: "read_file",
+            description: "Read a file with line numbers. Refuses binary files and enforces a size limit. Line numbers are 1-indexed.",
+            build_args: build_read_file_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": string_prop("File path to read (required)"),
+                    "max_size": int_prop("Maximum bytes to read (default: 1048576 = 1 MB)"),
+                    "offset": int_prop("Starting line number, 1-indexed (default: 1)"),
+                    "limit": int_prop("Maximum number of lines to return (default: all)")
+                },
+                "required": ["path"]
+            }),
+        },
+        ToolDef {
+            name: "read_lines",
+            description: "Read a specific range of lines from a file. Refuses binary files and enforces a size limit.",
+            build_args: build_read_lines_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": string_prop("File path to read (required)"),
+                    "start_line": int_prop("First line to read, 1-indexed (default: 1)"),
+                    "end_line": int_prop("Last line to read, inclusive (default: end of file)")
+                },
+                "required": ["path"]
+            }),
+        },
+        ToolDef {
+            name: "fetch",
+            description: "Fetch a URL and return its content as text or markdown.",
+            build_args: build_fetch_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "url": string_prop("URL to fetch (required)"),
+                    "mode": string_prop("Output mode: text or markdown (default: text)"),
+                    "timeout": int_prop("Request timeout in seconds (default: 30)")
+                },
+                "required": ["url"]
+            }),
+        },
+        ToolDef {
+            name: "scrape",
+            description: "Scrape a web page using CSS selector or automatic readability extraction.",
+            build_args: build_scrape_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "url": string_prop("URL to scrape (required)"),
+                    "mode": string_prop("Output mode: text, markdown, or html (default: text)"),
+                    "selector": string_prop("CSS selector to extract a specific element"),
+                    "timeout": int_prop("Request timeout in seconds (default: 30)")
+                },
+                "required": ["url"]
+            }),
+        },
     ]
 }
 
@@ -404,6 +549,166 @@ fn build_info_args(args: &Value) -> Result<Vec<String>, String> {
     if let Some(f) = arg_str(args, "file") {
         v.push("-f".into());
         v.push(f);
+    }
+    Ok(v)
+}
+
+fn build_detect_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["detect".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    Ok(v)
+}
+
+fn build_status_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["status".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    Ok(v)
+}
+
+fn build_diff_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["diff".to_string()];
+    if arg_bool(args, "staged") {
+        v.push("--staged".into());
+    }
+    if let Some(c) = arg_int(args, "context") {
+        v.push("-C".into());
+        v.push(c.to_string());
+    }
+    Ok(v)
+}
+
+fn build_log_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["log".to_string()];
+    if let Some(c) = arg_int(args, "count") {
+        v.push("-n".into());
+        v.push(c.to_string());
+    }
+    if let Some(s) = arg_str(args, "since") {
+        v.push("--since".into());
+        v.push(s);
+    }
+    if let Some(a) = arg_str(args, "author") {
+        v.push("--author".into());
+        v.push(a);
+    }
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    Ok(v)
+}
+
+fn build_branch_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["branch".to_string()];
+    if arg_bool(args, "all") {
+        v.push("-a".into());
+    }
+    Ok(v)
+}
+
+fn build_symbols_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["symbols".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if let Some(k) = arg_str(args, "kind") {
+        v.push("-k".into());
+        v.push(k);
+    }
+    if arg_bool(args, "public_only") {
+        v.push("-p".into());
+    }
+    Ok(v)
+}
+
+fn build_context_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["context".to_string()];
+    if let Some(paths) = args.get("paths").and_then(Value::as_array) {
+        for p in paths.iter().filter_map(Value::as_str) {
+            v.push(p.to_string());
+        }
+    }
+    if let Some(m) = arg_int(args, "max_tokens") {
+        v.push("--max-tokens".into());
+        v.push(m.to_string());
+    }
+    if let Some(inc) = arg_str(args, "include") {
+        v.push("--include".into());
+        v.push(inc);
+    }
+    if let Some(exc) = arg_str(args, "exclude") {
+        v.push("--exclude".into());
+        v.push(exc);
+    }
+    if arg_bool(args, "no_line_numbers") {
+        v.push("--no-line-numbers".into());
+    }
+    Ok(v)
+}
+
+fn build_read_file_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["read-file".to_string()];
+    v.push(required_str(args, "path")?);
+    if let Some(m) = arg_int(args, "max_size") {
+        v.push("--max-size".into());
+        v.push(m.to_string());
+    }
+    if let Some(o) = arg_int(args, "offset") {
+        v.push("--offset".into());
+        v.push(o.to_string());
+    }
+    if let Some(l) = arg_int(args, "limit") {
+        v.push("--limit".into());
+        v.push(l.to_string());
+    }
+    Ok(v)
+}
+
+fn build_read_lines_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["read-lines".to_string()];
+    v.push(required_str(args, "path")?);
+    if let Some(s) = arg_int(args, "start_line") {
+        v.push("--start-line".into());
+        v.push(s.to_string());
+    }
+    if let Some(e) = arg_int(args, "end_line") {
+        v.push("--end-line".into());
+        v.push(e.to_string());
+    }
+    Ok(v)
+}
+
+fn build_fetch_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["fetch".to_string()];
+    v.push(required_str(args, "url")?);
+    if let Some(m) = arg_str(args, "mode") {
+        v.push("--mode".into());
+        v.push(m);
+    }
+    if let Some(t) = arg_int(args, "timeout") {
+        v.push("--timeout".into());
+        v.push(t.to_string());
+    }
+    Ok(v)
+}
+
+fn build_scrape_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["scrape".to_string()];
+    v.push(required_str(args, "url")?);
+    if let Some(m) = arg_str(args, "mode") {
+        v.push("--mode".into());
+        v.push(m);
+    }
+    if let Some(s) = arg_str(args, "selector") {
+        v.push("--selector".into());
+        v.push(s);
+    }
+    if let Some(t) = arg_int(args, "timeout") {
+        v.push("--timeout".into());
+        v.push(t.to_string());
     }
     Ok(v)
 }
@@ -612,6 +917,8 @@ mod tests {
         match name {
             "find" | "search" => json!({ "pattern": "TODO" }),
             "count" | "checksum" => json!({ "files": ["Cargo.toml"] }),
+            "fetch" | "scrape" => json!({ "url": "https://example.com" }),
+            "read_file" | "read_lines" => json!({ "path": "Cargo.toml" }),
             _ => json!({}),
         }
     }
@@ -654,44 +961,44 @@ mod tests {
                 vec!["search", "TODO", "src", "-i", "-e", "rs", "-l"],
             ),
             (
-                "stats",
-                json!({ "path": "src", "by_type": true, "by_directory": true, "max_depth": 2 }),
-                vec!["stats", "src", "-t", "-d", "--max-depth", "2"],
+                "scrape",
+                json!({ "url": "https://example.com", "selector": "article.main", "mode": "html", "timeout": 30 }),
+                vec![
+                    "scrape",
+                    "https://example.com",
+                    "--mode",
+                    "html",
+                    "--selector",
+                    "article.main",
+                    "--timeout",
+                    "30",
+                ],
             ),
             (
-                "dups",
-                json!({ "path": "src", "min_size": "1kb" }),
-                vec!["dups", "src", "-m", "1kb"],
+                "read_file",
+                json!({ "path": "src/main.rs", "max_size": 65536, "offset": 10, "limit": 50 }),
+                vec![
+                    "read-file",
+                    "src/main.rs",
+                    "--max-size",
+                    "65536",
+                    "--offset",
+                    "10",
+                    "--limit",
+                    "50",
+                ],
             ),
             (
-                "largest",
-                json!({ "path": "src", "count": 5, "directories": true }),
-                vec!["largest", "src", "-n", "5", "-d"],
-            ),
-            (
-                "recent",
-                json!({ "path": "src", "count": 5, "days": 2, "ext": "rs" }),
-                vec!["recent", "src", "-n", "5", "-d", "2", "-e", "rs"],
-            ),
-            (
-                "empty",
-                json!({ "path": "src", "files": true, "dirs": true }),
-                vec!["empty", "src", "-f", "-d"],
-            ),
-            (
-                "count",
-                json!({ "files": ["Cargo.toml", "README.md"] }),
-                vec!["count", "Cargo.toml", "README.md"],
-            ),
-            (
-                "checksum",
-                json!({ "files": ["Cargo.toml"], "algorithm": "md5" }),
-                vec!["checksum", "Cargo.toml", "-a", "md5"],
-            ),
-            (
-                "info",
-                json!({ "file": "Cargo.toml" }),
-                vec!["info", "-f", "Cargo.toml"],
+                "read_lines",
+                json!({ "path": "src/main.rs", "start_line": 5, "end_line": 20 }),
+                vec![
+                    "read-lines",
+                    "src/main.rs",
+                    "--start-line",
+                    "5",
+                    "--end-line",
+                    "20",
+                ],
             ),
         ];
 

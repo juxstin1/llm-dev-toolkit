@@ -1,19 +1,27 @@
 pub mod checksum;
 pub mod clip;
+pub mod config;
+pub mod context;
 pub mod count;
+pub mod detect;
 pub mod dups;
 pub mod empty;
 pub mod extract;
+#[cfg(feature = "net")]
+pub mod fetch;
 pub mod find;
+pub mod git;
 pub mod info;
 pub mod json;
 pub mod largest;
 pub mod ls;
+pub mod read;
 pub mod recent;
 pub mod search;
 pub mod sort;
 pub mod spec0;
 pub mod stats;
+pub mod symbols;
 pub mod tree;
 pub mod view;
 

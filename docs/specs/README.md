@@ -19,6 +19,12 @@ where the code lives, how the change rolls out, and how to prove it.
 | --- | --- | --- |
 | [SPEC-000: Planning System](SPEC-000-planning-system.md) | implemented | Repo-local docs, maps, tickets, runbooks, proof lanes, and autonomous loop. |
 | [SPEC-001: CLI Ergonomics And Workflow Shortcuts](SPEC-001-cli-ergonomics.md) | accepted | Additive shortcuts, help polish, natural file info, and future `show`/`scan` workflows. |
+| [SPEC-006: Git Integration Commands](SPEC-006-git-integration.md) | draft | `tk status`/`diff`/`log`/`branch` with structured JSON for agents. |
+| [SPEC-007: Context Window Manager](SPEC-007-context-window.md) | draft | `tk context` — token-aware file concatenation with max-tokens budgeting. |
+| [SPEC-008: Symbol Extraction](SPEC-008-symbol-extraction.md) | draft | `tk symbols` — function/class/struct/interface extraction from source. |
+| [SPEC-009: Project Detection](SPEC-009-project-detection.md) | draft | `tk detect` — auto-detect language, build, test, lint from config files. |
+| [SPEC-010: Web Scraping Utility](SPEC-010-web-scraper.md) | draft | `tk fetch`/`tk scrape` — HTTP fetching with readability extraction + cleanup. |
+| [SPEC-011: MCP File Reading](SPEC-011-mcp-file-reading.md) | draft | `read_file`/`read_lines` MCP tools for agents without built-in file readers. |
 
 ## Candidate Future Specs
 
