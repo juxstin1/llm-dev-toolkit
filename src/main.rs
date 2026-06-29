@@ -104,6 +104,20 @@ enum Commands {
     Symbols(commands::symbols::SymbolsArgs),
     #[command(about = "Concatenate files with path headers and optional token-budget truncation")]
     Context(commands::context::ContextArgs),
+    #[command(about = "Fetch a URL and return its content as text or markdown")]
+    Fetch(commands::fetch::FetchArgs),
+    #[command(about = "Scrape a web page using CSS selector or readability extraction")]
+    Scrape(commands::fetch::ScrapeArgs),
+    #[command(
+        name = "read-file",
+        about = "Read a file with line numbers, binary detection, and size limit"
+    )]
+    ReadFile(commands::read::ReadFileArgs),
+    #[command(
+        name = "read-lines",
+        about = "Read a specific range of lines from a file"
+    )]
+    ReadLines(commands::read::ReadLinesArgs),
 }
 
 #[derive(clap::Args)]
@@ -470,6 +484,12 @@ fn main() {
         Commands::Branch(a) => commands::git::run_branch(a),
         Commands::Symbols(a) => commands::symbols::run(a),
         Commands::Context(a) => commands::context::run(a),
+        #[cfg(feature = "net")]
+        Commands::Fetch(a) => commands::fetch::run_fetch(a),
+        #[cfg(feature = "net")]
+        Commands::Scrape(a) => commands::fetch::run_scrape(a),
+        Commands::ReadFile(a) => commands::read::run_read_file(a),
+        Commands::ReadLines(a) => commands::read::run_read_lines(a),
     };
 
     if let Err(e) = result {

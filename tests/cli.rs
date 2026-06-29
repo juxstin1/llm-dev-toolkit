@@ -790,3 +790,180 @@ fn test_mcp_checksum_invalid_algorithm_reports_tool_error() {
         "tool error should explain unsupported algorithm, got: {text}"
     );
 }
+
+#[test]
+fn test_tk_read_file_basic() {
+    let dir = setup_temp_dir("read-file-basic");
+    let (stdout, stderr, success) = tk(&["read-file", dir.join("hello.txt").to_str().unwrap()]);
+    assert!(success, "read-file should succeed");
+    assert!(stderr.is_empty(), "no stderr on success");
+    assert!(
+        stdout.contains("hello world"),
+        "should contain file content"
+    );
+    assert!(stdout.contains("     1:"), "should show line numbers");
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_read_file_with_offset_and_limit() {
+    let dir = setup_temp_dir("read-file-offset-limit");
+    let (stdout, _, success) = tk(&[
+        "read-file",
+        dir.join("hello.txt").to_str().unwrap(),
+        "--offset",
+        "2",
+        "--limit",
+        "2",
+    ]);
+    assert!(success, "read-file with offset/limit should succeed");
+    assert!(stdout.contains("     2:"), "should start at line 2");
+    assert!(
+        !stdout.contains("     4:"),
+        "should not include beyond limit"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_read_file_binary_rejected() {
+    let dir = setup_temp_dir("read-file-binary");
+    let (_, stderr, success) = tk(&["read-file", dir.join("logo.bin").to_str().unwrap()]);
+    assert!(!success, "read-file should reject binary files");
+    assert!(stderr.contains("binary"), "should mention binary");
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_read_file_nonexistent() {
+    let (_, stderr, success) = tk(&["read-file", "/nonexistent/path.txt"]);
+    assert!(!success, "read-file should fail on nonexistent file");
+    assert!(stderr.contains("not found"), "should mention not found");
+}
+
+#[test]
+fn test_tk_read_lines_basic() {
+    let dir = setup_temp_dir("read-lines-basic");
+    let (stdout, _stderr, success) = tk(&[
+        "read-lines",
+        dir.join("hello.txt").to_str().unwrap(),
+        "--start-line",
+        "1",
+        "--end-line",
+        "2",
+    ]);
+    assert!(success, "read-lines should succeed");
+    assert!(stdout.contains("hello world"), "should include first line");
+    assert!(stdout.contains("foo bar"), "should include second line");
+    assert!(!stdout.contains("baz"), "should not include third line");
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_read_file_json_output() {
+    let dir = setup_temp_dir("read-file-json");
+    let (stdout, _, success) = tk(&[
+        "read-file",
+        dir.join("hello.txt").to_str().unwrap(),
+        "--format",
+        "json",
+    ]);
+    assert!(success, "read-file --format json should succeed");
+    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        v["path"].as_str().unwrap(),
+        dir.join("hello.txt").to_str().unwrap()
+    );
+    assert_eq!(v["total_lines"], 3);
+    assert_eq!(v["returned_lines"], 3);
+    assert_eq!(v["truncated"], false);
+    cleanup(&dir);
+}
+
+fn escape_path(path: &std::path::Path) -> String {
+    path.to_str().unwrap().replace('\\', "\\\\")
+}
+
+#[test]
+fn test_mcp_read_file_returns_content() {
+    let dir = setup_temp_dir("mcp-read-file");
+    let path = escape_path(&dir.join("hello.txt"));
+    let req = format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"read_file","arguments":{{"path":"{}"}}}}}}"#,
+        path
+    );
+    let resps = tk_mcp(&[&req]);
+    let result = &resps[0]["result"];
+    assert!(
+        !result["isError"].as_bool().unwrap(),
+        "read_file should not error"
+    );
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("hello world"),
+        "MCP read_file should contain file content"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_mcp_read_lines_returns_range() {
+    let dir = setup_temp_dir("mcp-read-lines");
+    let path = escape_path(&dir.join("hello.txt"));
+    let req = format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"read_lines","arguments":{{"path":"{}","start_line":1,"end_line":2}}}}}}"#,
+        path
+    );
+    let resps = tk_mcp(&[&req]);
+    let result = &resps[0]["result"];
+    assert!(
+        !result["isError"].as_bool().unwrap(),
+        "read_lines should not error"
+    );
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("hello world"),
+        "MCP read_lines should contain first line"
+    );
+    assert!(
+        text.contains("foo bar"),
+        "MCP read_lines should contain second line"
+    );
+    cleanup(&dir);
+}
+
+#[test]
+fn test_mcp_fetch_tool_listed() {
+    let req = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#;
+    let resps = tk_mcp(&[req]);
+    let tools = &resps[0]["result"]["tools"];
+    let names: Vec<&str> = tools
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+    assert!(names.contains(&"fetch"), "fetch tool should be listed");
+    assert!(names.contains(&"scrape"), "scrape tool should be listed");
+}
+
+#[test]
+fn test_tk_context_with_include_glob() {
+    let dir = setup_temp_dir("context-include");
+    let (stdout, _, success) = tk(&["context", dir.to_str().unwrap(), "--include", "*.rs"]);
+    assert!(success, "context --include should succeed");
+    assert!(stdout.contains("test.rs"), "should include .rs file");
+    assert!(!stdout.contains("hello.txt"), "should exclude .txt file");
+    cleanup(&dir);
+}
+
+#[test]
+fn test_tk_context_with_exclude_glob() {
+    let dir = setup_temp_dir("context-exclude");
+    let (stdout, _, success) = tk(&["context", dir.to_str().unwrap(), "--exclude", "*.bin"]);
+    assert!(success, "context --exclude should succeed");
+    assert!(stdout.contains("hello.txt"), "should include .txt file");
+    assert!(stdout.contains("test.rs"), "should include .rs file");
+    assert!(!stdout.contains("logo.bin"), "should exclude .bin file");
+    cleanup(&dir);
+}

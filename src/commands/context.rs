@@ -1,4 +1,5 @@
 use clap::Args;
+use glob::Pattern;
 use serde::Serialize;
 use std::path::Path;
 
@@ -125,6 +126,17 @@ fn collect_from_dir(
     files: &mut Vec<ContextFile>,
     args: &ContextArgs,
 ) -> Result<(), String> {
+    let include_pat = args
+        .include
+        .as_ref()
+        .map(|p| Pattern::new(p).map_err(|e| format!("invalid include glob '{}': {}", p, e)))
+        .transpose()?;
+    let exclude_pat = args
+        .exclude
+        .as_ref()
+        .map(|p| Pattern::new(p).map_err(|e| format!("invalid exclude glob '{}': {}", p, e)))
+        .transpose()?;
+
     let walk = crate::commands::WalkConfig {
         root: dir.to_str().unwrap_or("."),
         show_all: false,
@@ -136,7 +148,18 @@ fn collect_from_dir(
         if !path.is_file() {
             continue;
         }
-        // Globbing skipped for simplicity in v1
+        let rel = path.strip_prefix(dir).unwrap_or(path);
+        let name = rel.to_string_lossy();
+        if let Some(ref pat) = include_pat {
+            if !pat.matches(&name) {
+                continue;
+            }
+        }
+        if let Some(ref pat) = exclude_pat {
+            if pat.matches(&name) {
+                continue;
+            }
+        }
         if let Some(file) = read_file(path, args) {
             files.push(file);
         }

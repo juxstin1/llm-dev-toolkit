@@ -7,12 +7,15 @@ pub mod detect;
 pub mod dups;
 pub mod empty;
 pub mod extract;
+#[cfg(feature = "net")]
+pub mod fetch;
 pub mod find;
 pub mod git;
 pub mod info;
 pub mod json;
 pub mod largest;
 pub mod ls;
+pub mod read;
 pub mod recent;
 pub mod search;
 pub mod sort;
