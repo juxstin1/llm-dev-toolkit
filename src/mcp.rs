@@ -217,6 +217,80 @@ fn tool_defs() -> Vec<ToolDef> {
                 }
             }),
         },
+        ToolDef {
+            name: "status",
+            description: "Git working tree status (branch, staged, unstaged, untracked files).",
+            build_args: build_status_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": string_prop("Directory to check (default: current dir)")
+                }
+            }),
+        },
+        ToolDef {
+            name: "diff",
+            description: "Git diff of unstaged or staged changes as structured hunks.",
+            build_args: build_diff_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "staged": bool_prop("Show staged diff instead of unstaged"),
+                    "context": int_prop("Number of context lines")
+                }
+            }),
+        },
+        ToolDef {
+            name: "log",
+            description: "Git commit log with hash, author, date, and message.",
+            build_args: build_log_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "count": int_prop("Number of commits to return"),
+                    "since": string_prop("Show commits since this date"),
+                    "author": string_prop("Filter by author pattern"),
+                    "path": string_prop("Filter by file path")
+                }
+            }),
+        },
+        ToolDef {
+            name: "branch",
+            description: "List git branches with current branch indicator.",
+            build_args: build_branch_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "all": bool_prop("Include remote branches")
+                }
+            }),
+        },
+        ToolDef {
+            name: "symbols",
+            description: "Extract symbol definitions (functions, classes, structs) from source files.",
+            build_args: build_symbols_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": string_prop("File or directory (default: current dir)"),
+                    "kind": json!({ "type": "string", "enum": ["fn", "class", "struct", "trait", "interface", "enum", "all"], "description": "Symbol kind filter" }),
+                    "public_only": bool_prop("Public/exported symbols only")
+                }
+            }),
+        },
+        ToolDef {
+            name: "context",
+            description: "Concatenate files with path headers, line numbers, and optional token-budget truncation for LLM context windows.",
+            build_args: build_context_args,
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "paths": json!({ "type": "array", "items": { "type": "string" }, "description": "Files or directories to include" }),
+                    "max_tokens": int_prop("Truncate output to this token budget (estimated, ~4 bytes/token)"),
+                    "no_line_numbers": bool_prop("Disable line numbers in output")
+                }
+            }),
+        },
     ]
 }
 
@@ -423,6 +497,86 @@ fn build_detect_args(args: &Value) -> Result<Vec<String>, String> {
     let mut v = vec!["detect".to_string()];
     if let Some(p) = arg_str(args, "path") {
         v.push(p);
+    }
+    Ok(v)
+}
+
+fn build_status_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["status".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    Ok(v)
+}
+
+fn build_diff_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["diff".to_string()];
+    if arg_bool(args, "staged") {
+        v.push("--staged".into());
+    }
+    if let Some(c) = arg_int(args, "context") {
+        v.push("-C".into());
+        v.push(c.to_string());
+    }
+    Ok(v)
+}
+
+fn build_log_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["log".to_string()];
+    if let Some(c) = arg_int(args, "count") {
+        v.push("-n".into());
+        v.push(c.to_string());
+    }
+    if let Some(s) = arg_str(args, "since") {
+        v.push("--since".into());
+        v.push(s);
+    }
+    if let Some(a) = arg_str(args, "author") {
+        v.push("--author".into());
+        v.push(a);
+    }
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    Ok(v)
+}
+
+fn build_branch_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["branch".to_string()];
+    if arg_bool(args, "all") {
+        v.push("-a".into());
+    }
+    Ok(v)
+}
+
+fn build_symbols_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["symbols".to_string()];
+    if let Some(p) = arg_str(args, "path") {
+        v.push(p);
+    }
+    if let Some(k) = arg_str(args, "kind") {
+        v.push("-k".into());
+        v.push(k);
+    }
+    if arg_bool(args, "public_only") {
+        v.push("-p".into());
+    }
+    Ok(v)
+}
+
+fn build_context_args(args: &Value) -> Result<Vec<String>, String> {
+    let mut v = vec!["context".to_string()];
+    if let Some(paths) = args.get("paths").and_then(Value::as_array) {
+        for p in paths.iter().filter_map(Value::as_str) {
+            v.push(p.to_string());
+        }
+    }
+    if let Some(m) = arg_int(args, "max_tokens") {
+        v.push("--max-tokens".into());
+        v.push(m.to_string());
+    }
+    if arg_bool(args, "no_line_numbers") {
+        v.push("--no-line-numbers".into());
     }
     Ok(v)
 }
@@ -713,6 +867,35 @@ mod tests {
                 vec!["info", "-f", "Cargo.toml"],
             ),
             ("detect", json!({ "path": "src" }), vec!["detect", "src"]),
+            ("status", json!({ "path": "src" }), vec!["status", "src"]),
+            (
+                "diff",
+                json!({ "staged": true, "context": 5 }),
+                vec!["diff", "--staged", "-C", "5"],
+            ),
+            (
+                "log",
+                json!({ "count": 10, "author": "justin" }),
+                vec!["log", "-n", "10", "--author", "justin"],
+            ),
+            ("branch", json!({ "all": true }), vec!["branch", "-a"]),
+            (
+                "symbols",
+                json!({ "path": "src", "kind": "fn", "public_only": true }),
+                vec!["symbols", "src", "-k", "fn", "-p"],
+            ),
+            (
+                "context",
+                json!({ "paths": ["src/main.rs", "src/lib.rs"], "max_tokens": 4000, "no_line_numbers": true }),
+                vec![
+                    "context",
+                    "src/main.rs",
+                    "src/lib.rs",
+                    "--max-tokens",
+                    "4000",
+                    "--no-line-numbers",
+                ],
+            ),
         ];
 
         for (name, args, expected) in cases {
