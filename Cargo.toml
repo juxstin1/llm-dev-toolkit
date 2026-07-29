@@ -53,4 +53,4 @@ glob = "0.3"
 toml = "0.8"
 regex = "1"
 ureq = { version = "3", optional = true }
-scraper = { version = "0.22", optional = true }
+scraper = { version = "0.27", optional = true }
