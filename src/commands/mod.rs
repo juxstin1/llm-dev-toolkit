@@ -1,5 +1,6 @@
 pub mod checksum;
 pub mod clip;
+pub mod completions;
 pub mod config;
 pub mod context;
 pub mod count;
@@ -17,7 +18,9 @@ pub mod largest;
 pub mod ls;
 pub mod read;
 pub mod recent;
+pub mod scan;
 pub mod search;
+pub mod show;
 pub mod sort;
 pub mod spec0;
 pub mod stats;
@@ -154,7 +157,14 @@ impl<'a> Default for WalkConfig<'a> {
 /// The `.git` directory is always skipped — even with `show_all: true` — so
 /// commands like `dups`, `stats`, and `largest` never descend into git
 /// internals (and `dups --delete` can never offer to delete them).
-pub fn walk_entries(config: &WalkConfig) -> impl Iterator<Item = ignore::DirEntry> {
+pub fn walk_entries(config: &WalkConfig) -> Result<impl Iterator<Item = ignore::DirEntry>, String> {
+    let metadata = std::fs::metadata(config.root)
+        .map_err(|e| format!("Cannot access walk root '{}': {}", config.root, e))?;
+    if metadata.is_dir() {
+        std::fs::read_dir(config.root)
+            .map_err(|e| format!("Cannot read walk root '{}': {}", config.root, e))?;
+    }
+
     let mut builder = WalkBuilder::new(config.root);
     builder
         .hidden(!config.show_all)
@@ -165,10 +175,12 @@ pub fn walk_entries(config: &WalkConfig) -> impl Iterator<Item = ignore::DirEntr
     if let Some(depth) = config.max_depth {
         builder.max_depth(Some(depth));
     }
-    builder
+    // Descendant entries can disappear or become unreadable during a walk.
+    // Keep those failures best-effort while treating root access as fatal.
+    Ok(builder
         .build()
         .filter_map(|e| e.ok())
-        .filter(|e| !e.path().components().any(|c| c.as_os_str() == ".git"))
+        .filter(|e| !e.path().components().any(|c| c.as_os_str() == ".git")))
 }
 
 pub fn format_size(size: u64) -> String {

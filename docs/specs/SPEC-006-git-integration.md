@@ -1,6 +1,6 @@
 ---
 title: "SPEC-006: Git Integration Commands"
-status: draft
+status: implemented
 date: 2026-06-29
 scope: "Add git status, diff, log, and branch subcommands to tk"
 owners: []

@@ -4,9 +4,9 @@ This repository uses a lightweight spec-first planning layer for the `tk` CLI
 and MCP server. Product code stays in `src/`; durable planning context lives
 under `docs/`.
 
-Current status: planning layer implemented, autonomous loop documented, and the
-initial bug queue completed. Recheck the live checkout before treating runtime
-facts as current.
+Current status: the 0.5 roadmap and all upgrade candidates are implemented;
+there are no ready or blocked product tickets. Recheck the live checkout before
+treating runtime facts as current.
 
 | Need | Use |
 | --- | --- |
@@ -29,9 +29,9 @@ facts as current.
 
 ## Current Work Queue
 
-The first bug queue was drafted as GitHub issue bodies under `tickets/`, then
-implemented and verified. `docs/tickets/INDEX.md` is the repo-local source of
-truth for active work, draft upgrade candidates, and ticket readiness rules.
+The first bug queue and the 0.5 upgrade candidates were implemented and
+verified. `docs/tickets/INDEX.md` is the repo-local source of truth for active
+work and ticket readiness rules.
 
 When no ticket is ready, use
 [`runbooks/autonomous-loop.md`](runbooks/autonomous-loop.md) to research and

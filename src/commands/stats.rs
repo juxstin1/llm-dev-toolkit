@@ -46,7 +46,7 @@ pub fn run(args: &StatsArgs) -> Result<(), String> {
         max_depth: args.max_depth,
     };
 
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         let path = entry.path();
         let Some(ft) = entry.file_type() else {
             continue;

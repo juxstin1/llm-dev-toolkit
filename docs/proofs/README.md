@@ -49,6 +49,7 @@ done.
 
 ## Current Proofs
 
+- [2026-07-29-roadmap-completion.md](2026-07-29-roadmap-completion.md)
 - [2026-06-26-current-baseline-and-autonomous-loop.md](2026-06-26-current-baseline-and-autonomous-loop.md)
 - [2026-06-26-tk-upgrade-002-json-runtime-errors.md](2026-06-26-tk-upgrade-002-json-runtime-errors.md)
 - [2026-06-26-professional-github-readme.md](2026-06-26-professional-github-readme.md)

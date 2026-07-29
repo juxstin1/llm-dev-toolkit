@@ -38,6 +38,14 @@ jobs:
         run: cargo test --all
       - name: Build (release)
         run: cargo build --release
+      - name: Build without network features
+        run: cargo test --all --no-default-features
+      - name: Clippy without network features
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo clippy --all-targets --no-default-features -- -D warnings
+      - name: Package crate
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo package --locked
 
   demo:
     name: Demo check
@@ -56,3 +64,6 @@ jobs:
       - name: Check demo TypeScript
         working-directory: demo
         run: npm run check
+      - name: Audit demo dependencies
+        working-directory: demo
+        run: npm audit --audit-level=high

@@ -1,6 +1,6 @@
 ---
 title: "SPEC-007: Context Window Manager"
-status: draft
+status: implemented
 date: 2026-06-29
 scope: "Add tk context command for token-aware file concatenation"
 owners: []

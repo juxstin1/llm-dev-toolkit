@@ -1,6 +1,6 @@
 ---
 title: "SPEC-009: Project Detection"
-status: draft
+status: implemented
 date: 2026-06-29
 scope: "Add tk detect command for auto-detecting project type, language, and toolchain"
 owners: []

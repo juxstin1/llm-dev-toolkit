@@ -9,7 +9,7 @@ struct SystemInfo {
     cpu_cores: usize,
     current_dir: String,
     home_dir: String,
-    disk_usage_bytes: u64,
+    disk_usage_bytes: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -29,7 +29,7 @@ struct FileInfo {
     readonly: Option<bool>,
 }
 
-fn system_info() -> Result<(), String> {
+fn system_info(include_disk_usage: bool) -> Result<(), String> {
     let os = std::env::consts::OS;
     let cpus = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -43,7 +43,11 @@ fn system_info() -> Result<(), String> {
     } else {
         std::env::var("HOME").unwrap_or_default()
     };
-    let disk_usage = dir_size(".")?;
+    let disk_usage = if include_disk_usage {
+        Some(dir_size(".")?)
+    } else {
+        None
+    };
 
     if crate::commands::json_enabled() {
         return crate::commands::emit_json(&SystemInfo {
@@ -59,10 +63,14 @@ fn system_info() -> Result<(), String> {
     println!("CPU Cores:       {}", cpus);
     println!("Current Dir:     {}", current_dir);
     println!("Home Dir:        {}", home);
-    println!(
-        "Disk Usage:      {} (current dir)",
-        crate::commands::format_size(disk_usage)
-    );
+    if let Some(bytes) = disk_usage {
+        println!(
+            "Disk Usage:      {} (current dir)",
+            crate::commands::format_size(bytes)
+        );
+    } else {
+        println!("Disk Usage:      skipped (use --disk-usage)");
+    }
 
     Ok(())
 }
@@ -197,8 +205,13 @@ fn dir_size(path: &str) -> Result<u64, String> {
 }
 
 pub fn run(args: &crate::InfoArgs) -> Result<(), String> {
-    match &args.file {
+    match args.file.as_ref().or(args.path.as_ref()) {
         Some(path) => file_info(path),
-        None => system_info(),
+        None => system_info(
+            args.disk_usage
+                || crate::config::get()
+                    .cmd_bool("info", "disk-usage")
+                    .unwrap_or(false),
+        ),
     }
 }

@@ -248,6 +248,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.6.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f84a88507dbd05c695f2cb5e8558e747179134005e9893882dec964190ed89"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -806,6 +815,37 @@ name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
+
+[[package]]
+name = "llm-dev-toolkit"
+version = "0.5.0"
+dependencies = [
+ "arboard",
+ "base64",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "filetime",
+ "flate2",
+ "glob",
+ "humansize",
+ "ignore",
+ "md-5",
+ "mime_guess",
+ "rayon",
+ "regex",
+ "same-file",
+ "scraper",
+ "serde",
+ "serde_json",
+ "sha2",
+ "syntect",
+ "tar",
+ "termcolor",
+ "toml",
+ "ureq",
+ "zip",
+]
 
 [[package]]
 name = "lock_api"
@@ -1635,36 +1675,6 @@ checksum = "71c652a3727a9cbb9a02f707f530b618ce00d0ccd762009c8c23bd191df3c17d"
 dependencies = [
  "num-conv",
  "time-core",
-]
-
-[[package]]
-name = "tk"
-version = "0.4.0"
-dependencies = [
- "arboard",
- "base64",
- "chrono",
- "clap",
- "filetime",
- "flate2",
- "glob",
- "humansize",
- "ignore",
- "md-5",
- "mime_guess",
- "rayon",
- "regex",
- "same-file",
- "scraper",
- "serde",
- "serde_json",
- "sha2",
- "syntect",
- "tar",
- "termcolor",
- "toml",
- "ureq",
- "zip",
 ]
 
 [[package]]

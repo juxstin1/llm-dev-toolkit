@@ -18,21 +18,22 @@ where the code lives, how the change rolls out, and how to prove it.
 | Spec | Status | Scope |
 | --- | --- | --- |
 | [SPEC-000: Planning System](SPEC-000-planning-system.md) | implemented | Repo-local docs, maps, tickets, runbooks, proof lanes, and autonomous loop. |
-| [SPEC-001: CLI Ergonomics And Workflow Shortcuts](SPEC-001-cli-ergonomics.md) | accepted | Additive shortcuts, help polish, natural file info, and future `show`/`scan` workflows. |
-| [SPEC-006: Git Integration Commands](SPEC-006-git-integration.md) | draft | `tk status`/`diff`/`log`/`branch` with structured JSON for agents. |
-| [SPEC-007: Context Window Manager](SPEC-007-context-window.md) | draft | `tk context` — token-aware file concatenation with max-tokens budgeting. |
-| [SPEC-008: Symbol Extraction](SPEC-008-symbol-extraction.md) | draft | `tk symbols` — function/class/struct/interface extraction from source. |
-| [SPEC-009: Project Detection](SPEC-009-project-detection.md) | draft | `tk detect` — auto-detect language, build, test, lint from config files. |
-| [SPEC-010: Web Scraping Utility](SPEC-010-web-scraper.md) | draft | `tk fetch`/`tk scrape` — HTTP fetching with readability extraction + cleanup. |
-| [SPEC-011: MCP File Reading](SPEC-011-mcp-file-reading.md) | draft | `read_file`/`read_lines` MCP tools for agents without built-in file readers. |
+| [SPEC-001: CLI Ergonomics And Workflow Shortcuts](SPEC-001-cli-ergonomics.md) | implemented | Visible aliases, short flags, natural info paths, `show`, `scan`, and completions. |
+| [SPEC-003: CLI Output And Error Contract](SPEC-003-cli-output-errors.md) | implemented | Text/JSON selection, ANSI control, runtime failures, and root validation. |
+| [SPEC-004: MCP Tool Schema And CLI Parity](SPEC-004-mcp-tool-contract.md) | implemented | Closed schemas, strict validation, 23 canonical tools, and CLI child dispatch. |
+| [SPEC-006: Git Integration Commands](SPEC-006-git-integration.md) | implemented | `tk status`/`diff`/`log`/`branch` with structured JSON for agents. |
+| [SPEC-007: Context Window Manager](SPEC-007-context-window.md) | implemented | Token-aware file concatenation with max-token budgeting. |
+| [SPEC-008: Symbol Extraction](SPEC-008-symbol-extraction.md) | implemented | Function/class/struct/interface extraction from source. |
+| [SPEC-009: Project Detection](SPEC-009-project-detection.md) | implemented | Detect language, build, test, lint, and formatter configuration. |
+| [SPEC-010: Web Scraping Utility](SPEC-010-web-scraper.md) | implemented | Feature-gated HTTP fetching, selectors, and text cleanup. |
+| [SPEC-011: MCP File Reading](SPEC-011-mcp-file-reading.md) | implemented | Bounded `read_file` and `read_lines` MCP tools. |
+| [SPEC-012: Layered Configuration](SPEC-012-config-system.md) | implemented | Global/project TOML, feature gates, defaults, and CLI precedence. |
 
 ## Candidate Future Specs
 
 | Candidate | Why |
 | --- | --- |
 | `SPEC-002`: Git-aware traversal contract | Make `.git`, ignore handling, hidden-file behavior, and recursive traversal semantics consistent. |
-| `SPEC-003`: CLI output and exit-code contract | Pin text vs JSON behavior, exit-code expectations, color rules, and path formatting beyond the ergonomics scope. |
-| `SPEC-004`: MCP tool contract | Pin exposed tools, input schemas, error semantics, and parity with CLI JSON output. |
 | `SPEC-005`: Archive extraction safety contract | Define supported archive formats, zip-slip/tar traversal protection, overwrite behavior, and entry counts. |
 
 ## Spec Rules

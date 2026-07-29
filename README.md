@@ -12,7 +12,7 @@ installs a small agent workflow for disciplined plan/execute/verify loops.
 [![CI](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/juxstin1/llm-dev-toolkit/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-stable-orange.svg)](https://www.rust-lang.org/)
-![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
 
 <p align="center">
   <img src="media/tk-demo.gif" alt="tk in action: ll, tree, search, stats, and largest" width="820">
@@ -54,6 +54,14 @@ Basic install:
 cargo install --git https://github.com/juxstin1/llm-dev-toolkit.git
 ```
 
+After the first crates.io release:
+
+```bash
+cargo install llm-dev-toolkit
+```
+
+The package name is `llm-dev-toolkit`; the installed executable is `tk`.
+
 Or build from source with network features (fetch/scrape):
 
 ```bash
@@ -80,7 +88,9 @@ tk ll
 tk tree -L 2
 tk ff config -e toml
 tk search "TODO" src --line-number
+tk s TODO src -n
 tk stats --format json -t
+tk stats -e -j
 tk largest -n 10
 tk checksum -a sha512 file.iso
 tk status
@@ -89,6 +99,9 @@ tk context . --include '**/*.rs' --max-tokens 8000
 tk symbols -k fn
 tk detect
 tk read-file src/main.rs --offset 1 --limit 20
+tk show src/main.rs:120 -C 8
+tk scan . -L 2 -n 10
+tk completions powershell
 tk fetch https://example.com --mode markdown
 tk scrape https://docs.rs --selector "article.doc"
 tk spec0 list
@@ -99,6 +112,8 @@ Global flags:
 - `--color <auto|always|never>` controls ANSI color output. `NO_COLOR` is
   respected.
 - `--format <text|json>` chooses human output or stable machine-readable JSON.
+- `-j` / `--json` is the short form of `--format json`.
+- `--no-color` is the short form of `--color never`.
 
 ## Command Map
 
@@ -109,21 +124,21 @@ Global flags:
 | `ll` | | Shortcut for `ls -al`. |
 | `tree` | `lt` | Show a directory tree. |
 | `ltd` | | Show a tree with a required depth limit. |
-| `ff` | `fd`, `find` | Find files or directories by name substring. |
-| `ff-ext` | | Find files by extension. |
-| `ff-name` | | Find names by substring or glob. |
-| `search` | `grep` | Search file contents. |
+| `ff` | `f`, `fd`, `find` | Find files or directories by name substring. |
+| `ff-ext` | `fe` | Find files by extension. |
+| `ff-name` | `fn` | Find names by substring or glob. |
+| `search` | `grep`, `s`, `rg` | Search file contents by substring. |
 | `cat` | | Print files. |
-| `preview` | | Syntax-highlighted preview. |
+| `preview` | `view` | Syntax-highlighted preview. |
 | `head` / `tail` | | Show first or last lines. |
-| `count` | | Count lines, words, chars, and bytes. |
+| `count` | `wc` | Count lines, words, chars, and bytes. |
 | `stats` | | Summarize file, directory, and byte counts. |
 | `dups` | | Find duplicate files by SHA-256. |
-| `recent` | | List recently modified files. |
-| `largest` | | List largest files or directories. |
+| `recent` | `new` | List recently modified files. |
+| `largest` | `big` | List largest files or directories. |
 | `empty` | | Find empty files and directories. |
 | `sort` | | Sort one directory by name, size, date, or extension. |
-| `checksum` | | Compute SHA and MD5 checksums. |
+| `checksum` | `hash`, `sum` | Compute SHA and MD5 checksums. |
 | `extract` | | Extract `.zip`, `.tar`, `.tar.gz`, `.tgz`, and `.gz` archives. |
 | `json` | | Format, validate, or inspect JSON. |
 | `clip` | | Read or write the system clipboard. |
@@ -138,6 +153,9 @@ Global flags:
 | `context` | | Concatenate files with path headers, glob filters, and token budget. |
 | `read-file` | | Read a file with line numbers, binary detection, and size limit. |
 | `read-lines` | | Read a specific range of lines from a file. |
+| `show` | `peek` | Show a file or bounded context around `FILE:LINE`. |
+| `scan` | `overview` | Return a shallow tree, statistics, largest files, and recent files. |
+| `completions` | | Generate PowerShell, Bash, Zsh, or Fish completions. |
 | `fetch` ⚡ | | Fetch a URL and return content as text or markdown. |
 | `scrape` ⚡ | | Scrape a web page with CSS selector or readability extraction. |
 | `spec0` | | List, print, or install Spec0 agent workflow commands. |
@@ -167,6 +185,41 @@ Runtime errors in JSON mode keep stdout empty and emit a JSON object on stderr:
 ```json
 { "error": "Unsupported algorithm: sha1" }
 ```
+
+Recursive commands also fail nonzero when their root does not exist or cannot
+be accessed; they do not report an empty successful result for a bad root.
+
+## Configuration
+
+`tk` merges `~/.config/tk/config.toml` with the nearest project
+`.tkconfig.toml`; project values win. CLI flags win over configured command
+defaults.
+
+```toml
+[features]
+git = true
+fetch = false
+symbols = true
+detect = true
+context = true
+
+[defaults]
+format = "text"
+color = "auto"
+
+[commands.context]
+max-tokens = 8000
+no-line-numbers = false
+
+[commands.diff]
+context = 5
+staged = false
+```
+
+Use `tk config` for the merged values and `tk config --paths` for discovery
+paths. Supported command defaults currently cover `status.porcelain`,
+`diff.context`, `diff.staged`, `log.count`, `branch.all`, and the context keys
+shown above.
 
 ## MCP Server
 
@@ -245,6 +298,8 @@ cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test --all
 cargo build --release
+cargo build --release --no-default-features
+cargo package --locked
 ```
 
 Demo verification:
@@ -266,6 +321,8 @@ the MP4 output.
 - [Specs](docs/specs/README.md)
 - [Ticket queue](docs/tickets/INDEX.md)
 - [Runbooks](docs/runbooks/README.md)
+- [Release runbook](docs/runbooks/release.md)
+- [Versioning and release decision](docs/adr/ADR-001-versioning-and-releases.md)
 - [Proof logs](docs/proofs/README.md)
 
 ## Contributing

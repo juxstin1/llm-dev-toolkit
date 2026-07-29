@@ -1,6 +1,6 @@
 ---
 title: "SPEC-010: Web Scraping Utility"
-status: draft
+status: implemented
 date: 2026-06-29
 scope: "Add tk scrape command and tk fetch subcommand for web content retrieval with proper cleanup"
 owners: []

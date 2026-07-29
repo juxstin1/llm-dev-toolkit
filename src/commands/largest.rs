@@ -31,7 +31,7 @@ fn largest_files(root: &str, count: usize) -> Result<(), String> {
         ..Default::default()
     };
 
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         if !entry.file_type().is_some_and(|ft| ft.is_file()) {
             continue;
         }
@@ -81,7 +81,7 @@ fn largest_dirs(root: &str, count: usize) -> Result<(), String> {
         ..Default::default()
     };
 
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         if !entry.file_type().is_some_and(|ft| ft.is_file()) {
             continue;
         }

@@ -29,7 +29,7 @@ pub fn run(args: &crate::SearchArgs) -> Result<(), String> {
         ..Default::default()
     };
 
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         if !entry.file_type().is_some_and(|ft| ft.is_file()) {
             continue;
         }
@@ -75,7 +75,7 @@ fn run_json(args: &crate::SearchArgs) -> Result<(), String> {
     let mut file_hits: Vec<String> = Vec::new();
     let mut line_hits: Vec<SearchHit> = Vec::new();
 
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         if !entry.file_type().is_some_and(|ft| ft.is_file()) {
             continue;
         }

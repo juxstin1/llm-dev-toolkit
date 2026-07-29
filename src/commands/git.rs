@@ -25,15 +25,15 @@ pub struct DiffArgs {
     staged: bool,
     #[arg(long, alias = "cached", help = "Alias for --staged")]
     cached: bool,
-    #[arg(short = 'C', long, default_value = "3", help = "Context lines")]
-    context: usize,
+    #[arg(short = 'C', long, help = "Context lines (default: 3)")]
+    context: Option<usize>,
     paths: Vec<String>,
 }
 
 #[derive(Args)]
 pub struct LogArgs {
-    #[arg(short = 'n', long, default_value = "10", help = "Number of commits")]
-    count: usize,
+    #[arg(short = 'n', long, help = "Number of commits (default: 10)")]
+    count: Option<usize>,
     #[arg(long, help = "Show commits since this date (e.g. '7 days ago')")]
     since: Option<String>,
     #[arg(long, help = "Show commits until this date")]
@@ -62,6 +62,13 @@ pub fn run_status(args: &StatusArgs) -> Result<(), String> {
     if crate::commands::json_enabled() {
         let parsed = parse_status(&output, &args.path)?;
         crate::commands::emit_json(&parsed)
+    } else if args.porcelain
+        || crate::config::get()
+            .cmd_bool("status", "porcelain")
+            .unwrap_or(false)
+    {
+        print!("{}", output);
+        Ok(())
     } else {
         // Raw git status output for human reading
         let raw = run_git(&["status"])?;
@@ -74,12 +81,18 @@ pub fn run_diff(args: &DiffArgs) -> Result<(), String> {
     crate::config::require_feature("git")?;
     ensure_git_repo()?;
 
-    let is_staged = args.staged || args.cached;
+    let defaults = crate::config::get();
+    let is_staged =
+        args.staged || args.cached || defaults.cmd_bool("diff", "staged").unwrap_or(false);
+    let context = args
+        .context
+        .or_else(|| defaults.cmd_usize("diff", "context"))
+        .unwrap_or(3);
     let mut cmd = vec!["diff".to_string()];
     if is_staged {
         cmd.push("--cached".into());
     }
-    cmd.push(format!("--unified={}", args.context));
+    cmd.push(format!("--unified={}", context));
     cmd.push("--".into());
     cmd.extend(args.paths.iter().cloned());
 
@@ -99,10 +112,14 @@ pub fn run_log(args: &LogArgs) -> Result<(), String> {
     crate::config::require_feature("git")?;
     ensure_git_repo()?;
 
+    let count = args
+        .count
+        .or_else(|| crate::config::get().cmd_usize("log", "count"))
+        .unwrap_or(10);
     let mut git_args: Vec<String> = vec![
         "log".into(),
         "--format=%H%n%h%n%an%n%ae%n%ai%n%cn%n%ce%n%cI%n%D%n%s%n%b%x00".into(),
-        format!("--max-count={}", args.count),
+        format!("--max-count={}", count),
     ];
     if let Some(ref since) = args.since {
         git_args.push("--since".into());
@@ -127,11 +144,8 @@ pub fn run_log(args: &LogArgs) -> Result<(), String> {
         crate::commands::emit_json(&parsed)
     } else {
         let fmt = "--format=%C(auto)%h %s %C(dim)%an%C(reset)";
-        let mut text_args: Vec<String> = vec![
-            "log".into(),
-            fmt.into(),
-            format!("--max-count={}", args.count),
-        ];
+        let mut text_args: Vec<String> =
+            vec!["log".into(), fmt.into(), format!("--max-count={}", count)];
         if let Some(ref since) = args.since {
             text_args.push("--since".into());
             text_args.push(since.into());
@@ -157,8 +171,12 @@ pub fn run_branch(args: &BranchArgs) -> Result<(), String> {
     crate::config::require_feature("git")?;
     ensure_git_repo()?;
 
+    let all = args.all
+        || crate::config::get()
+            .cmd_bool("branch", "all")
+            .unwrap_or(false);
     if crate::commands::json_enabled() {
-        let list_args = if args.all {
+        let list_args = if all {
             vec!["branch", "--all"]
         } else {
             vec!["branch"]
@@ -168,7 +186,7 @@ pub fn run_branch(args: &BranchArgs) -> Result<(), String> {
         crate::commands::emit_json(&parsed)
     } else {
         let mut cmd_args = vec!["branch"];
-        if args.all {
+        if all {
             cmd_args.push("-a");
         }
         let output = run_git(&cmd_args)?;

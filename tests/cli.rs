@@ -21,6 +21,17 @@ fn tk(args: &[&str]) -> (String, String, bool) {
     (stdout, stderr, output.status.success())
 }
 
+fn tk_in(args: &[&str], cwd: &Path) -> (String, String, bool) {
+    let output = Command::new(tk_binary())
+        .current_dir(cwd)
+        .args(args)
+        .output()
+        .expect("failed to execute tk");
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    (stdout, stderr, output.status.success())
+}
+
 fn setup_temp_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("tk-integration-{}", name));
     let _ = std::fs::remove_dir_all(&dir);
@@ -933,6 +944,7 @@ fn test_mcp_read_lines_returns_range() {
 }
 
 #[test]
+#[cfg(feature = "net")]
 fn test_mcp_fetch_tool_listed() {
     let req = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#;
     let resps = tk_mcp(&[req]);
@@ -966,4 +978,288 @@ fn test_tk_context_with_exclude_glob() {
     assert!(stdout.contains("test.rs"), "should include .rs file");
     assert!(!stdout.contains("logo.bin"), "should exclude .bin file");
     cleanup(&dir);
+}
+
+#[test]
+fn test_recursive_command_rejects_missing_root() {
+    let missing = std::env::temp_dir().join("tk-integration-definitely-missing-root");
+    let _ = std::fs::remove_dir_all(&missing);
+    let (stdout, stderr, success) = tk(&["stats", missing.to_str().unwrap(), "--format", "json"]);
+    assert!(!success, "missing walk root must fail");
+    assert!(stdout.is_empty(), "JSON errors keep stdout empty");
+    let error: serde_json::Value = serde_json::from_str(stderr.trim()).unwrap();
+    assert!(error["error"].as_str().unwrap().contains("walk root"));
+}
+
+#[test]
+fn test_public_aliases_execute_canonical_commands() {
+    let dir = setup_temp_dir("public-aliases");
+    let file = dir.join("hello.txt");
+    let cases: Vec<Vec<String>> = vec![
+        vec!["l".into(), dir.to_string_lossy().into_owned()],
+        vec![
+            "t".into(),
+            dir.to_string_lossy().into_owned(),
+            "-L".into(),
+            "1".into(),
+        ],
+        vec![
+            "f".into(),
+            "hello".into(),
+            dir.to_string_lossy().into_owned(),
+        ],
+        vec![
+            "find".into(),
+            "hello".into(),
+            dir.to_string_lossy().into_owned(),
+        ],
+        vec![
+            "fe".into(),
+            "txt".into(),
+            dir.to_string_lossy().into_owned(),
+        ],
+        vec![
+            "fn".into(),
+            "hello".into(),
+            dir.to_string_lossy().into_owned(),
+        ],
+        vec!["s".into(), "foo".into(), dir.to_string_lossy().into_owned()],
+        vec![
+            "rg".into(),
+            "foo".into(),
+            dir.to_string_lossy().into_owned(),
+        ],
+        vec!["view".into(), file.to_string_lossy().into_owned()],
+        vec!["wc".into(), file.to_string_lossy().into_owned()],
+        vec!["hash".into(), file.to_string_lossy().into_owned()],
+        vec!["sum".into(), file.to_string_lossy().into_owned()],
+        vec![
+            "big".into(),
+            dir.to_string_lossy().into_owned(),
+            "-n".into(),
+            "1".into(),
+        ],
+        vec![
+            "new".into(),
+            dir.to_string_lossy().into_owned(),
+            "-n".into(),
+            "1".into(),
+        ],
+    ];
+    for args in cases {
+        let refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+        let (_, stderr, success) = tk(&refs);
+        assert!(success, "alias command failed: {args:?}: {stderr}");
+    }
+    cleanup(&dir);
+}
+
+#[test]
+fn test_fast_flags_and_natural_info_path() {
+    let dir = setup_temp_dir("fast-flags");
+    let path = dir.join("hello.txt");
+    let (stats, _, success) = tk(&["stats", dir.to_str().unwrap(), "-e", "-j"]);
+    assert!(success);
+    let _: serde_json::Value = serde_json::from_str(&stats).unwrap();
+
+    let (search, _, success) = tk(&["s", "foo", dir.to_str().unwrap(), "-n", "--no-color"]);
+    assert!(success);
+    assert!(
+        search.contains(":2:"),
+        "line-number shortcut missing: {search}"
+    );
+
+    let (positional, _, positional_ok) = tk(&["info", path.to_str().unwrap()]);
+    let (flagged, _, flagged_ok) = tk(&["info", "-f", path.to_str().unwrap()]);
+    assert!(positional_ok && flagged_ok);
+    assert_eq!(positional, flagged);
+    cleanup(&dir);
+}
+
+#[test]
+fn test_root_help_teaches_visible_shortcuts() {
+    let (stdout, stderr, success) = tk(&["--help"]);
+    assert!(success, "help failed: {stderr}");
+    for expected in [
+        "Common:",
+        "aliases: l",
+        "aliases: grep, s, rg",
+        "aliases: lt, t",
+        "show",
+        "scan",
+        "completions",
+    ] {
+        assert!(
+            stdout.contains(expected),
+            "help missing '{expected}': {stdout}"
+        );
+    }
+    let (sort_help, _, sort_ok) = tk(&["sort", "--help"]);
+    assert!(sort_ok && sort_help.contains("-k"));
+    let (clip_help, _, clip_ok) = tk(&["clip", "--help"]);
+    assert!(clip_ok && clip_help.contains("--fallback"));
+}
+
+#[test]
+fn test_project_config_feature_gate_and_context_defaults() {
+    let dir = setup_temp_dir("project-config");
+    std::fs::write(dir.join(".tkconfig.toml"), "[features]\ncontext = false\n").unwrap();
+    let (_, stderr, success) = tk_in(&["context", "."], &dir);
+    assert!(!success);
+    assert!(stderr.contains("'context' is not enabled"));
+
+    std::fs::write(
+        dir.join(".tkconfig.toml"),
+        "[features]\ncontext = true\n\n[commands.context]\nmax-tokens = 1\nno-line-numbers = true\n",
+    )
+    .unwrap();
+    let (stdout, stderr, success) = tk_in(&["context", ".", "-j"], &dir);
+    assert!(success, "configured context failed: {stderr}");
+    let value: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(value["max_tokens"], 1);
+    cleanup(&dir);
+}
+
+#[test]
+fn test_info_disk_usage_is_explicit() {
+    let dir = setup_temp_dir("info-disk-usage");
+    let (default_output, _, default_ok) = tk_in(&["info"], &dir);
+    assert!(default_ok);
+    assert!(default_output.contains("skipped (use --disk-usage)"));
+    let (measured_output, _, measured_ok) = tk_in(&["info", "--disk-usage"], &dir);
+    assert!(measured_ok);
+    assert!(measured_output.contains("(current dir)"));
+    assert!(!measured_output.contains("skipped"));
+    cleanup(&dir);
+}
+
+#[test]
+fn test_extension_filters_accept_leading_dot_consistently() {
+    let dir = setup_temp_dir("extension-leading-dot");
+    for command in ["ff-ext", "recent"] {
+        let args = if command == "ff-ext" {
+            vec![command, ".txt", dir.to_str().unwrap()]
+        } else {
+            vec![command, dir.to_str().unwrap(), "-e", ".txt"]
+        };
+        let (stdout, stderr, success) = tk(&args);
+        assert!(success, "{command} failed: {stderr}");
+        assert!(
+            stdout.contains("hello.txt"),
+            "{command} did not normalize .txt"
+        );
+    }
+    cleanup(&dir);
+}
+
+#[test]
+fn test_show_json_context_contract() {
+    let dir = setup_temp_dir("show-json");
+    let target = format!("{}:2", dir.join("hello.txt").display());
+    let (stdout, stderr, success) = tk(&["show", &target, "-C", "1", "-j"]);
+    assert!(success, "show failed: {stderr}");
+    let value: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(value["line"], 2);
+    assert_eq!(value["start_line"], 1);
+    assert_eq!(value["end_line"], 3);
+    assert_eq!(value["lines"][1]["target"], true);
+    cleanup(&dir);
+}
+
+#[test]
+fn test_scan_json_contract_and_git_exclusion() {
+    let dir = setup_temp_dir("scan-json");
+    std::fs::create_dir(dir.join(".git")).unwrap();
+    std::fs::write(dir.join(".git").join("config"), b"secret").unwrap();
+    let (stdout, stderr, success) =
+        tk(&["scan", dir.to_str().unwrap(), "-L", "2", "-n", "2", "-j"]);
+    assert!(success, "scan failed: {stderr}");
+    let value: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(value["tree"].is_object());
+    assert_eq!(value["stats"]["files"], 4);
+    assert!(!stdout.contains(".git"));
+    assert_eq!(value["largest"].as_array().unwrap().len(), 2);
+    cleanup(&dir);
+}
+
+#[test]
+fn test_shell_completions_generate_for_supported_shells() {
+    for shell in ["powershell", "bash", "zsh", "fish"] {
+        let (stdout, stderr, success) = tk(&["completions", shell]);
+        assert!(success, "{shell} completions failed: {stderr}");
+        assert!(stdout.contains("tk"), "{shell} output did not mention tk");
+    }
+}
+
+#[test]
+#[cfg(feature = "net")]
+fn test_mcp_inventory_and_schemas_are_locked() {
+    let resps = tk_mcp(&[r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#]);
+    let tools = resps[0]["result"]["tools"].as_array().unwrap();
+    let mut names = tools
+        .iter()
+        .map(|tool| tool["name"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    names.sort_unstable();
+    assert_eq!(
+        names,
+        vec![
+            "branch",
+            "checksum",
+            "context",
+            "count",
+            "detect",
+            "diff",
+            "dups",
+            "empty",
+            "fetch",
+            "find",
+            "info",
+            "largest",
+            "log",
+            "ls",
+            "read_file",
+            "read_lines",
+            "recent",
+            "scrape",
+            "search",
+            "stats",
+            "status",
+            "symbols",
+            "tree",
+        ]
+    );
+    assert!(tools.iter().all(|tool| {
+        tool["inputSchema"]["additionalProperties"] == serde_json::Value::Bool(false)
+    }));
+}
+
+#[test]
+#[cfg(not(feature = "net"))]
+fn test_mcp_network_tools_are_absent_without_net_feature() {
+    let resps = tk_mcp(&[r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#]);
+    let names = resps[0]["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tool| tool["name"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(names.len(), 21);
+    assert!(!names.contains(&"fetch"));
+    assert!(!names.contains(&"scrape"));
+}
+
+#[test]
+fn test_mcp_rejects_invalid_argument_shapes() {
+    let requests = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"count","arguments":{"files":["Cargo.toml",7]}}}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"tree","arguments":{"depth":-1}}}"#,
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"ls","arguments":{"unknown":true}}}"#,
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"ls","arguments":[]}}"#,
+    ];
+    let responses = tk_mcp(&requests);
+    assert_eq!(responses.len(), requests.len());
+    for response in responses {
+        assert_eq!(response["result"]["isError"], true);
+    }
 }

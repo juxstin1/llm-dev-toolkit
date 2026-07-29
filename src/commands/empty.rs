@@ -24,7 +24,7 @@ pub fn run(args: &EmptyArgs) -> Result<(), String> {
 
     let mut out: Vec<EmptyEntry> = Vec::new();
 
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         let ft = match entry.file_type() {
             Some(ft) => ft,
             None => continue,
