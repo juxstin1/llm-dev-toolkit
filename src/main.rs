@@ -7,7 +7,13 @@ mod mcp;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "tk", version, about = "LLM Dev Toolkit", term_width = 100)]
+#[command(
+    name = "tk",
+    version,
+    about = "LLM Dev Toolkit",
+    term_width = 100,
+    after_help = "Common:\n  tk ll                 long listing with hidden entries\n  tk t -L 2             tree, two levels deep\n  tk f config -e toml   find config files\n  tk s TODO src -n      search with line numbers\n  tk stats -e -j        extension stats as JSON"
+)]
 struct Cli {
     #[arg(
         long,
@@ -19,17 +25,32 @@ struct Cli {
     #[arg(
         long,
         global = true,
+        help = "Disable ANSI color output",
+        conflicts_with = "color"
+    )]
+    no_color: bool,
+    #[arg(
+        long,
+        global = true,
         value_enum,
         help = "Output format: text (human) or json (machine-readable)"
     )]
     format: Option<commands::OutputFormat>,
+    #[arg(
+        short = 'j',
+        long,
+        global = true,
+        help = "Emit JSON output",
+        conflicts_with = "format"
+    )]
+    json: bool,
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(alias = "l", about = "List directory contents")]
+    #[command(visible_alias = "l", about = "List directory contents")]
     Ls(LsArgs),
     #[command(about = "Short for 'ls -a'")]
     La(LaArgs),
@@ -37,22 +58,22 @@ enum Commands {
     Ll(LlArgs),
     #[command(about = "Display directory tree with depth limit")]
     Ltd(LtdArgs),
-    #[command(about = "Find files by name (substring match)")]
+    #[command(visible_aliases = ["f", "find"], about = "Find files by name (substring match)")]
     Ff(FfArgs),
-    #[command(
-        alias = "find",
-        about = "Find files by name (substring match, alias for ff)"
-    )]
+    #[command(about = "Compatibility command for ff")]
     Fd(FdArgs),
-    #[command(about = "Find files by extension")]
+    #[command(visible_alias = "fe", about = "Find files by extension")]
     FfExt(FfExtArgs),
-    #[command(about = "Find files by substring match in name")]
+    #[command(visible_alias = "fn", about = "Find files by substring match in name")]
     FfName(FfNameArgs),
-    #[command(alias = "grep", about = "Search file contents (grep-like patterns)")]
+    #[command(
+        visible_aliases = ["grep", "s", "rg"],
+        about = "Search file contents (substring matching)"
+    )]
     Search(SearchArgs),
     #[command(about = "Concatenate and display files")]
     Cat(CatArgs),
-    #[command(about = "Syntax-highlighted file preview")]
+    #[command(visible_alias = "view", about = "Syntax-highlighted file preview")]
     Preview(PreviewArgs),
     #[command(about = "Display first lines of files")]
     Head(HeadArgs),
@@ -62,19 +83,22 @@ enum Commands {
     Stats(StatsArgs),
     #[command(about = "Find duplicate files by SHA-256 hash")]
     Dups(DupsArgs),
-    #[command(about = "List recently modified files")]
+    #[command(visible_alias = "new", about = "List recently modified files")]
     Recent(RecentArgs),
-    #[command(about = "Show largest files or directories")]
+    #[command(visible_alias = "big", about = "Show largest files or directories")]
     Largest(LargestArgs),
     #[command(about = "Find empty files and directories")]
     Empty(EmptyArgs),
-    #[command(alias = "lt", about = "Display directory tree")]
+    #[command(visible_aliases = ["lt", "t"], about = "Display directory tree")]
     Tree(TreeArgs),
     #[command(about = "Read/write system clipboard")]
     Clip(ClipArgs),
-    #[command(about = "Count lines, words, chars, bytes")]
+    #[command(visible_alias = "wc", about = "Count lines, words, chars, bytes")]
     Count(CountArgs),
-    #[command(about = "Compute file checksums (SHA-256 default)")]
+    #[command(
+        visible_aliases = ["hash", "sum"],
+        about = "Compute file checksums (SHA-256 default)"
+    )]
     Checksum(ChecksumArgs),
     #[command(about = "Extract archives (zip, tar, gz)")]
     Extract(ExtractArgs),
@@ -104,8 +128,10 @@ enum Commands {
     Symbols(commands::symbols::SymbolsArgs),
     #[command(about = "Concatenate files with path headers and optional token-budget truncation")]
     Context(commands::context::ContextArgs),
+    #[cfg(feature = "net")]
     #[command(about = "Fetch a URL and return its content as text or markdown")]
     Fetch(commands::fetch::FetchArgs),
+    #[cfg(feature = "net")]
     #[command(about = "Scrape a web page using CSS selector or readability extraction")]
     Scrape(commands::fetch::ScrapeArgs),
     #[command(
@@ -118,6 +144,18 @@ enum Commands {
         about = "Read a specific range of lines from a file"
     )]
     ReadLines(commands::read::ReadLinesArgs),
+    #[command(
+        visible_alias = "peek",
+        about = "Show a file or bounded context around FILE:LINE"
+    )]
+    Show(commands::show::ShowArgs),
+    #[command(
+        visible_alias = "overview",
+        about = "Summarize a repository tree, size, largest, and recent files"
+    )]
+    Scan(commands::scan::ScanArgs),
+    #[command(about = "Generate shell completion scripts")]
+    Completions(commands::completions::CompletionsArgs),
 }
 
 #[derive(clap::Args)]
@@ -185,7 +223,7 @@ struct SearchArgs {
     path: Option<String>,
     #[arg(short = 'i', long, help = "Case-insensitive matching")]
     ignore_case: bool,
-    #[arg(long, help = "Show line numbers")]
+    #[arg(short = 'n', long, help = "Show line numbers")]
     line_number: bool,
     #[arg(short = 'C', long, help = "Show N lines of context around matches")]
     context: Option<usize>,
@@ -230,7 +268,13 @@ struct StatsArgs {
     path: Option<String>,
     #[arg(short = 'd', long, help = "Show per-directory breakdown")]
     directory: bool,
-    #[arg(short = 't', long, help = "Show per-extension breakdown")]
+    #[arg(
+        short = 't',
+        visible_short_alias = 'e',
+        long,
+        visible_alias = "ext",
+        help = "Show per-extension breakdown"
+    )]
     by_type: bool,
     #[arg(long, help = "Maximum directory depth")]
     max_depth: Option<usize>,
@@ -310,6 +354,7 @@ struct ClipArgs {
     r#in: bool,
     #[arg(
         long,
+        visible_alias = "fallback",
         help = "Allow persistent file fallback when the system clipboard is unavailable"
     )]
     allow_file_fallback: bool,
@@ -379,7 +424,9 @@ struct SortArgs {
     path: Option<String>,
     #[arg(
         short = 'b',
+        visible_short_alias = 'k',
         long,
+        visible_alias = "key",
         default_value = "name",
         help = "Sort field: name, size, date, ext"
     )]
@@ -399,8 +446,17 @@ struct SortArgs {
 
 #[derive(clap::Args)]
 struct InfoArgs {
-    #[arg(short = 'f', long, help = "Path to a specific file")]
+    #[arg(
+        short = 'f',
+        long,
+        conflicts_with = "path",
+        help = "Path to a specific file"
+    )]
     file: Option<String>,
+    #[arg(value_name = "PATH", conflicts_with = "file")]
+    path: Option<String>,
+    #[arg(long, help = "Calculate recursive disk usage for system overview")]
+    disk_usage: bool,
 }
 
 /// Exit quietly on a broken pipe (e.g. `tk tree | head`) instead of letting the
@@ -433,16 +489,24 @@ fn main() {
 
     let cli = Cli::parse();
 
-    let format = cli.format.unwrap_or_else(|| {
-        config::get()
-            .default_format()
-            .unwrap_or(commands::OutputFormat::Text)
-    });
-    let color = cli.color.unwrap_or_else(|| {
-        config::get()
-            .default_color()
-            .unwrap_or(commands::ColorChoice::Auto)
-    });
+    let format = if cli.json {
+        commands::OutputFormat::Json
+    } else {
+        cli.format.unwrap_or_else(|| {
+            config::get()
+                .default_format()
+                .unwrap_or(commands::OutputFormat::Text)
+        })
+    };
+    let color = if cli.no_color {
+        commands::ColorChoice::Never
+    } else {
+        cli.color.unwrap_or_else(|| {
+            config::get()
+                .default_color()
+                .unwrap_or(commands::ColorChoice::Auto)
+        })
+    };
 
     commands::init_format(format);
     commands::init_color(color);
@@ -490,6 +554,9 @@ fn main() {
         Commands::Scrape(a) => commands::fetch::run_scrape(a),
         Commands::ReadFile(a) => commands::read::run_read_file(a),
         Commands::ReadLines(a) => commands::read::run_read_lines(a),
+        Commands::Show(a) => commands::show::run(a),
+        Commands::Scan(a) => commands::scan::run(a),
+        Commands::Completions(a) => commands::completions::run(a),
     };
 
     if let Err(e) = result {

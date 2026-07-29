@@ -1,6 +1,6 @@
 ---
 title: "SPEC-008: Symbol Extraction"
-status: draft
+status: implemented
 date: 2026-06-29
 scope: "Add tk symbols command for extracting function, class, struct, and interface definitions"
 owners: []

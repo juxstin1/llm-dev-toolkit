@@ -43,7 +43,7 @@ pub fn run_name(args: &crate::FfArgs) -> Result<(), String> {
     };
 
     let mut matches: Vec<String> = Vec::new();
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         let ft = match entry.file_type() {
             Some(ft) => ft,
             None => continue,
@@ -97,7 +97,7 @@ pub fn run_ext(args: &crate::FfExtArgs) -> Result<(), String> {
     };
 
     let mut matches: Vec<String> = Vec::new();
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         let ft = match entry.file_type() {
             Some(ft) => ft,
             None => continue,
@@ -212,7 +212,7 @@ pub fn run_name_pattern(args: &crate::FfNameArgs) -> Result<(), String> {
     };
 
     let mut matches: Vec<String> = Vec::new();
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         let name = entry.file_name().to_string_lossy();
 
         let matched = if args.glob {

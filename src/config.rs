@@ -103,13 +103,28 @@ impl Config {
             })
     }
 
-    #[allow(dead_code)]
     pub fn get_cmd_default(&self, cmd: &str, key: &str) -> Option<toml::Value> {
         self.commands
             .as_ref()
             .and_then(|cmds| cmds.get(cmd))
             .and_then(|defaults| defaults.get(key))
             .cloned()
+    }
+
+    pub fn cmd_bool(&self, cmd: &str, key: &str) -> Option<bool> {
+        self.get_cmd_default(cmd, key)
+            .and_then(|value| value.as_bool())
+    }
+
+    pub fn cmd_usize(&self, cmd: &str, key: &str) -> Option<usize> {
+        self.get_cmd_default(cmd, key)
+            .and_then(|value| value.as_integer())
+            .and_then(|value| usize::try_from(value).ok())
+    }
+
+    pub fn cmd_string(&self, cmd: &str, key: &str) -> Option<String> {
+        self.get_cmd_default(cmd, key)
+            .and_then(|value| value.as_str().map(str::to_owned))
     }
 
     pub fn to_toml(&self) -> String {
@@ -283,5 +298,48 @@ fn merge_into(target: &mut Config, source: Config) {
         for (cmd, opts) in sc {
             tc.insert(cmd, opts);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn project_values_override_global_and_typed_defaults_work() {
+        let global: Config = toml::from_str(
+            r#"
+                [features]
+                git = false
+                [defaults]
+                format = "text"
+                [commands.context]
+                max-tokens = 4000
+                no-line-numbers = false
+            "#,
+        )
+        .unwrap();
+        let project: Config = toml::from_str(
+            r#"
+                [features]
+                git = true
+                [defaults]
+                format = "json"
+                [commands.context]
+                max-tokens = 8000
+                no-line-numbers = true
+                include = "*.rs"
+            "#,
+        )
+        .unwrap();
+        let config = merge(Some(global), Some(project));
+        assert!(config.is_feature_enabled("git"));
+        assert!(config.default_format() == Some(crate::commands::OutputFormat::Json));
+        assert_eq!(config.cmd_usize("context", "max-tokens"), Some(8000));
+        assert_eq!(config.cmd_bool("context", "no-line-numbers"), Some(true));
+        assert_eq!(
+            config.cmd_string("context", "include").as_deref(),
+            Some("*.rs")
+        );
     }
 }

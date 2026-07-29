@@ -91,7 +91,7 @@ fn collect_from_dir(
         max_depth: None,
     };
 
-    for entry in crate::commands::walk_entries(&walk) {
+    for entry in crate::commands::walk_entries(&walk)? {
         let path = entry.path();
         if !path.is_file() {
             continue;

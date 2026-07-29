@@ -1,6 +1,6 @@
 ---
 title: "SPEC-001: CLI Ergonomics And Workflow Shortcuts"
-status: accepted
+status: implemented
 date: 2026-06-22
 scope: "Design contract for additive CLI shortcuts, help polish, and higher-level workflow commands."
 owners: []

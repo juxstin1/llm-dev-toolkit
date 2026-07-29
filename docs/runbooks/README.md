@@ -10,12 +10,19 @@ cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test --all
 cargo build --release
+cargo build --release --no-default-features
+cargo package --locked
 ```
 
 ## Autonomous Spec0 Loop
 
 Use [autonomous-loop.md](autonomous-loop.md) for research, ticket drafting,
 implementation, verification, proof capture, subagent contracts, and handoff.
+
+## Releases
+
+Use [release.md](release.md) to validate a version, create its tag, publish
+platform archives and checksums, and publish the `llm-dev-toolkit` crate.
 
 ## Quick CLI Smoke Checks
 
@@ -28,11 +35,9 @@ target\release\tk.exe --version
 
 ## GitHub Issue Creation
 
-GitHub CLI is installed, but `gh auth status` reported an invalid token during
-the setup pass. Repair auth before creating live issues:
+Confirm GitHub CLI authentication before creating or changing live issues:
 
 ```powershell
-gh auth login -h github.com
 gh auth status
 ```
 

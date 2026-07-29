@@ -30,5 +30,8 @@ Status: proposed
 
 - Whether MCP should continue shelling back into the current executable for CLI
   JSON parity, or dispatch in-process for speed.
-- Versioning and release policy for the `tk` binary.
 - Where ticket drafts should live once GitHub issues exist.
+
+## Accepted ADRs
+
+- [ADR-001: Semantic Versioning And Tagged Releases](ADR-001-versioning-and-releases.md)

@@ -27,7 +27,7 @@ pub fn run(args: &RecentArgs) -> Result<(), String> {
         ..Default::default()
     };
 
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         if !entry.file_type().is_some_and(|ft| ft.is_file()) {
             continue;
         }

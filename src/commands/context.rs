@@ -3,7 +3,7 @@ use glob::Pattern;
 use serde::Serialize;
 use std::path::Path;
 
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct ContextArgs {
     paths: Vec<String>,
     #[arg(
@@ -41,10 +41,26 @@ struct ContextFile {
 pub fn run(args: &ContextArgs) -> Result<(), String> {
     crate::config::require_feature("context")?;
 
-    let paths = if args.paths.is_empty() {
+    let mut effective = args.clone();
+    let defaults = crate::config::get();
+    effective.max_tokens = effective
+        .max_tokens
+        .or_else(|| defaults.cmd_usize("context", "max-tokens"));
+    effective.include = effective
+        .include
+        .or_else(|| defaults.cmd_string("context", "include"));
+    effective.exclude = effective
+        .exclude
+        .or_else(|| defaults.cmd_string("context", "exclude"));
+    effective.no_line_numbers = effective.no_line_numbers
+        || defaults
+            .cmd_bool("context", "no-line-numbers")
+            .unwrap_or(false);
+
+    let paths = if effective.paths.is_empty() {
         vec![".".to_string()]
     } else {
-        args.paths.clone()
+        effective.paths.clone()
     };
 
     let mut files = Vec::new();
@@ -52,9 +68,9 @@ pub fn run(args: &ContextArgs) -> Result<(), String> {
     for path_str in &paths {
         let p = Path::new(path_str);
         if p.is_dir() {
-            collect_from_dir(p, &mut files, args)?;
+            collect_from_dir(p, &mut files, &effective)?;
         } else if p.is_file() {
-            if let Some(file) = read_file(p, args) {
+            if let Some(file) = read_file(p, &effective) {
                 files.push(file);
             }
         }
@@ -73,7 +89,7 @@ pub fn run(args: &ContextArgs) -> Result<(), String> {
     let mut output_files = files;
 
     // Apply max_tokens truncation
-    if let Some(max) = args.max_tokens {
+    if let Some(max) = effective.max_tokens {
         if total_tokens > max {
             // Drop files from the end until we fit
             let mut running = 0usize;
@@ -98,7 +114,7 @@ pub fn run(args: &ContextArgs) -> Result<(), String> {
     let result = ContextResult {
         total_tokens,
         total_bytes,
-        max_tokens: args.max_tokens,
+        max_tokens: effective.max_tokens,
         truncated,
         files: output_files,
     };
@@ -143,7 +159,7 @@ fn collect_from_dir(
         max_depth: None,
     };
 
-    for entry in crate::commands::walk_entries(&walk) {
+    for entry in crate::commands::walk_entries(&walk)? {
         let path = entry.path();
         if !path.is_file() {
             continue;

@@ -62,18 +62,25 @@ target, rollback, and handoff notes.
 | ID | Priority | Status | Ticket | Scope | Proof |
 | --- | --- | --- | --- | --- | --- |
 | `TK-UPGRADE-002` | P1 | done | [JSON runtime error contract tests](TK-UPGRADE-002-json-runtime-error-contract-tests.md) | Test-only coverage for JSON-mode runtime errors. | [proof](../proofs/2026-06-26-tk-upgrade-002-json-runtime-errors.md) |
+| `TK-UPGRADE-001` | P0 | done | [SPEC-003](../specs/SPEC-003-cli-output-errors.md) | Missing or unreadable recursive roots fail clearly. | [roadmap proof](../proofs/2026-07-29-roadmap-completion.md) |
+| `TK-UPGRADE-003` | P1 | done | [SPEC-004](../specs/SPEC-004-mcp-tool-contract.md) | MCP rejects malformed argument values. | [roadmap proof](../proofs/2026-07-29-roadmap-completion.md) |
+| `TK-UPGRADE-004` | P1 | done | [SPEC-004](../specs/SPEC-004-mcp-tool-contract.md) | MCP inventory and closed schemas are contract-tested. | [roadmap proof](../proofs/2026-07-29-roadmap-completion.md) |
+| `TK-UPGRADE-005` | P1 | done | [SPEC-001](../specs/SPEC-001-cli-ergonomics.md) | Natural `tk info PATH` preserves `tk info -f PATH`. | [roadmap proof](../proofs/2026-07-29-roadmap-completion.md) |
+| `TK-UPGRADE-006` | P1 | done | [SPEC-001](../specs/SPEC-001-cli-ergonomics.md) | Public aliases and fast flags are visible and tested. | [roadmap proof](../proofs/2026-07-29-roadmap-completion.md) |
+| `TK-UPGRADE-007` | P2 | done | [SPEC-003](../specs/SPEC-003-cli-output-errors.md) | Leading-dot extension filters are normalized and tested. | [roadmap proof](../proofs/2026-07-29-roadmap-completion.md) |
+| `TK-UPGRADE-008` | P2 | done | [SPEC-003](../specs/SPEC-003-cli-output-errors.md) | Recursive disk usage is opt-in through `info --disk-usage`. | [roadmap proof](../proofs/2026-07-29-roadmap-completion.md) |
 
 ## Draft Upgrade Candidates
 
-These candidates came from a 2026-06-26 read-only audit and need ticket files
-before implementation.
+All candidates from the 2026-06-26 audit were resolved in the 0.5.0 roadmap
+slice. The table remains as historical context.
 
 | ID | Priority | Status | Candidate | Likely Touchpoints | Next Action |
 | --- | --- | --- | --- | --- | --- |
-| `TK-UPGRADE-001` | P0 | draft | Fail clearly on missing or unreadable walk roots instead of silently dropping walker errors. | `src/commands/mod.rs`, `tests/cli.rs` | Write `SPEC-003` or a ticket-local exit-code contract, then add failing tests. |
-| `TK-UPGRADE-003` | P1 | draft | Harden MCP argument validation for non-string arrays and invalid integer values. | `src/mcp.rs`, `tests/cli.rs` | Resolve MCP error-semantics gate or cover it under `SPEC-004`. |
-| `TK-UPGRADE-004` | P1 | draft | Lock MCP tool inventory and schema shape against the README contract. | `src/mcp.rs`, `tests/cli.rs`, `README.md` | Create a test-first ticket; source changes only if the test exposes drift. |
-| `TK-UPGRADE-005` | P1 | draft | Add natural `tk info PATH` while preserving `tk info -f PATH`. | `src/main.rs`, `src/commands/info.rs`, `tests/cli.rs`, `README.md` | Product CLI decision gate before implementation. |
-| `TK-UPGRADE-006` | P1 | draft | Make documented aliases visible and contract-tested in help. | `src/main.rs`, `tests/cli.rs`, `README.md` | Product help-output decision gate before implementation. |
-| `TK-UPGRADE-007` | P2 | draft | Normalize extension filter behavior across `search`, `ff-ext`, and `recent`. | `src/commands/find.rs`, `src/commands/recent.rs`, `tests/cli.rs` | Product behavior decision gate before implementation. |
-| `TK-UPGRADE-008` | P2 | draft | Make no-arg `tk info` cheaper or explicitly opt into disk usage. | `src/main.rs`, `src/commands/info.rs`, `tests/cli.rs`, `README.md` | UX/performance decision gate before implementation. |
+| `TK-UPGRADE-001` | P0 | done | Fail clearly on missing or unreadable walk roots instead of silently dropping walker errors. | `src/commands/mod.rs`, `tests/cli.rs` | Closed. |
+| `TK-UPGRADE-003` | P1 | done | Harden MCP argument validation for non-string arrays and invalid integer values. | `src/mcp.rs`, `tests/cli.rs` | Closed. |
+| `TK-UPGRADE-004` | P1 | done | Lock MCP tool inventory and schema shape against the README contract. | `src/mcp.rs`, `tests/cli.rs`, `README.md` | Closed. |
+| `TK-UPGRADE-005` | P1 | done | Add natural `tk info PATH` while preserving `tk info -f PATH`. | `src/main.rs`, `src/commands/info.rs`, `tests/cli.rs`, `README.md` | Closed. |
+| `TK-UPGRADE-006` | P1 | done | Make documented aliases visible and contract-tested in help. | `src/main.rs`, `tests/cli.rs`, `README.md` | Closed. |
+| `TK-UPGRADE-007` | P2 | done | Normalize extension filter behavior across `search`, `ff-ext`, and `recent`. | `src/commands/find.rs`, `src/commands/recent.rs`, `tests/cli.rs` | Closed. |
+| `TK-UPGRADE-008` | P2 | done | Make no-arg `tk info` cheaper or explicitly opt into disk usage. | `src/main.rs`, `src/commands/info.rs`, `tests/cli.rs`, `README.md` | Closed. |

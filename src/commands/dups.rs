@@ -185,7 +185,7 @@ pub fn run(args: &DupsArgs) -> Result<(), String> {
     };
 
     let mut entries: Vec<(std::path::PathBuf, u64)> = Vec::new();
-    for entry in walk_entries(&config) {
+    for entry in walk_entries(&config)? {
         let path = entry.path();
         if !entry.file_type().is_some_and(|ft| ft.is_file()) {
             continue;
@@ -236,7 +236,7 @@ pub fn run(args: &DupsArgs) -> Result<(), String> {
     }
 
     let mut found = false;
-    for (_hash, files) in groups.iter() {
+    for files in groups.values() {
         if files.len() < 2 {
             continue;
         }
@@ -267,7 +267,7 @@ pub fn run(args: &DupsArgs) -> Result<(), String> {
         let mut deleted = 0usize;
         let mut failures: Vec<String> = Vec::new();
 
-        for (_hash, files) in groups.iter() {
+        for files in groups.values() {
             if files.len() < 2 {
                 continue;
             }

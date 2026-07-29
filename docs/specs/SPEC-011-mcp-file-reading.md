@@ -1,6 +1,6 @@
 ---
 title: "SPEC-011: MCP File Reading"
-status: draft
+status: implemented
 date: 2026-06-29
 scope: "Expose read-only file reading tools in the MCP server"
 owners: []

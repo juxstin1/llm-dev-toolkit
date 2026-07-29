@@ -322,6 +322,7 @@ fn tool_defs() -> Vec<ToolDef> {
                 "required": ["path"]
             }),
         },
+        #[cfg(feature = "net")]
         ToolDef {
             name: "fetch",
             description: "Fetch a URL and return its content as text or markdown.",
@@ -336,6 +337,7 @@ fn tool_defs() -> Vec<ToolDef> {
                 "required": ["url"]
             }),
         },
+        #[cfg(feature = "net")]
         ToolDef {
             name: "scrape",
             description: "Scrape a web page using CSS selector or automatic readability extraction.",
@@ -681,6 +683,7 @@ fn build_read_lines_args(args: &Value) -> Result<Vec<String>, String> {
     Ok(v)
 }
 
+#[cfg(feature = "net")]
 fn build_fetch_args(args: &Value) -> Result<Vec<String>, String> {
     let mut v = vec!["fetch".to_string()];
     v.push(required_str(args, "url")?);
@@ -695,6 +698,7 @@ fn build_fetch_args(args: &Value) -> Result<Vec<String>, String> {
     Ok(v)
 }
 
+#[cfg(feature = "net")]
 fn build_scrape_args(args: &Value) -> Result<Vec<String>, String> {
     let mut v = vec!["scrape".to_string()];
     v.push(required_str(args, "url")?);
@@ -717,10 +721,82 @@ fn tool_def(name: &str) -> Option<ToolDef> {
     tool_defs().into_iter().find(|tool| tool.name == name)
 }
 
+fn validate_arguments(tool: &ToolDef, args: &Value) -> Result<(), String> {
+    let supplied = args
+        .as_object()
+        .ok_or_else(|| "tool arguments must be a JSON object".to_string())?;
+    let properties = tool
+        .schema
+        .get("properties")
+        .and_then(Value::as_object)
+        .ok_or_else(|| format!("{} has an invalid internal schema", tool.name))?;
+
+    if let Some(required) = tool.schema.get("required").and_then(Value::as_array) {
+        for key in required.iter().filter_map(Value::as_str) {
+            if !supplied.contains_key(key) {
+                return Err(format!("missing required '{}'", key));
+            }
+        }
+    }
+
+    for (key, value) in supplied {
+        let property = properties
+            .get(key)
+            .ok_or_else(|| format!("unknown argument '{}' for {}", key, tool.name))?;
+        let expected = property.get("type").and_then(Value::as_str).unwrap_or("");
+        let valid_type = match expected {
+            "string" => value.is_string(),
+            "boolean" => value.is_boolean(),
+            "integer" => value.as_i64().is_some(),
+            "array" => value.is_array(),
+            _ => false,
+        };
+        if !valid_type {
+            return Err(format!(
+                "invalid '{}' for {}: expected {}",
+                key, tool.name, expected
+            ));
+        }
+        if expected == "integer" && value.as_i64().is_some_and(|number| number < 0) {
+            return Err(format!(
+                "invalid '{}' for {}: expected a non-negative integer",
+                key, tool.name
+            ));
+        }
+        if expected == "array" {
+            let item_type = property
+                .get("items")
+                .and_then(|items| items.get("type"))
+                .and_then(Value::as_str);
+            if item_type == Some("string")
+                && value
+                    .as_array()
+                    .is_some_and(|items| items.iter().any(|item| !item.is_string()))
+            {
+                return Err(format!(
+                    "invalid '{}' for {}: every array item must be a string",
+                    key, tool.name
+                ));
+            }
+        }
+        if let Some(allowed) = property.get("enum").and_then(Value::as_array) {
+            if !allowed.contains(value) {
+                return Err(format!(
+                    "invalid '{}' for {}: value is not allowed",
+                    key, tool.name
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Translate a tool name + JSON arguments into `tk` CLI arguments. The global
 /// `--format json --color never` flags are appended by the caller.
 fn build_args(name: &str, args: &Value) -> Result<Vec<String>, String> {
     let tool = tool_def(name).ok_or_else(|| format!("unknown tool: {}", name))?;
+    validate_arguments(&tool, args)?;
     (tool.build_args)(args)
 }
 
@@ -764,7 +840,10 @@ fn call_tool(name: &str, arguments: &Value) -> (String, bool) {
 fn tools_list_result() -> Value {
     let tools: Vec<Value> = tool_defs()
         .into_iter()
-        .map(|t| {
+        .map(|mut t| {
+            if let Some(schema) = t.schema.as_object_mut() {
+                schema.insert("additionalProperties".to_string(), Value::Bool(false));
+            }
             json!({
                 "name": t.name,
                 "description": t.description,
@@ -960,6 +1039,7 @@ mod tests {
                 json!({ "pattern": "TODO", "path": "src", "ignore_case": true, "ext": "rs", "files_with_matches": true }),
                 vec!["search", "TODO", "src", "-i", "-e", "rs", "-l"],
             ),
+            #[cfg(feature = "net")]
             (
                 "scrape",
                 json!({ "url": "https://example.com", "selector": "article.main", "mode": "html", "timeout": 30 }),
